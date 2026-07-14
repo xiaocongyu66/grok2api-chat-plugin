@@ -3,7 +3,11 @@ import { checkAccess } from "../lib/access.js"
 import { chatCompletions, chatWithMediaTools } from "../lib/client.js"
 import { sendForward, sendImagesForward, sendVideoForward } from "../lib/forward.js"
 import { extractImageUrls } from "../lib/images.js"
-import { buildMediaToolDefs } from "../lib/media-tools.js"
+import {
+  buildMediaToolDefs,
+  mediaToolPolicyText,
+  userWantsAnyMediaTool,
+} from "../lib/media-tools.js"
 import { reviewOutboundContent } from "../lib/outbound-review.js"
 import { buildChatMessages } from "../lib/prompt.js"
 import {
@@ -159,7 +163,7 @@ export class GrokChat extends plugin {
       "",
       "—— 生图 / 生视频 ——",
       "#生图 描述   #生视频 描述",
-      "会话中也可直接说「画一只猫/做个视频…」，模型会当工具调用生成，结果合并转发",
+      "要出图请说「画一张…」；只要文字请说「描述/用文字…」（不会调生图）",
       "",
       "—— 其它 ——",
       "#模型列表  #连通测试(主人)",
@@ -438,31 +442,49 @@ export class GrokChat extends plugin {
     const messages = buildChatMessages(this.e, prompt || "", hist, imgs)
 
     try {
-      // 对话可挂载生图/生视频 tools；结果一律合并聊天记录转发
-      const tools =
-        c.chatToolsEnable !== false ? buildMediaToolDefs(c) : []
+      // 仅当用户明确要「画/生成图/视频」时挂载 tools；「描述」纯文字不挂
+      const wantMedia =
+        c.chatToolsEnable !== false && userWantsAnyMediaTool(prompt || "")
+      const tools = wantMedia
+        ? buildMediaToolDefs(c, { userText: prompt || "" })
+        : []
       let content = ""
       let api = "chat"
       let model = c.chatModel
       let mediaResults = []
 
+      // 挂工具时注入使用规范，避免「描述」误调生图
+      const msgsForModel =
+        tools.length > 0
+          ? [
+              { role: "system", content: mediaToolPolicyText() },
+              ...messages,
+            ]
+          : messages
+
       if (tools.length) {
+        logger?.info?.(
+          `[grok2api-chat-plugin] media tools armed: ${tools.map(t => t.function?.name).join(",")}`,
+        )
         try {
+          let tipOnce = false
           const r = await chatWithMediaTools({
-            messages,
+            messages: msgsForModel,
             tools,
             imageUrls: imgs,
-            maxRounds: c.chatToolMaxRounds || 3,
+            maxRounds: Math.min(2, c.chatToolMaxRounds || 2),
             onToolStart: (name, args) => {
               logger?.info?.(
                 `[grok2api-chat-plugin] tool start ${name} prompt=${String(args?.prompt || "").slice(0, 80)}`,
               )
+              if (tipOnce) return
+              tipOnce = true
               this.reply(
                 name === "generate_video"
-                  ? "正在用工具生成视频，请稍候…"
-                  : "正在用工具生成图片，请稍候…",
+                  ? "正在生成视频（合并转发），请稍候…"
+                  : "正在生成图片（合并转发），请稍候…",
                 false,
-                { recallMsg: 30 },
+                { recallMsg: 20 },
               ).catch(() => {})
             },
           })
@@ -471,17 +493,21 @@ export class GrokChat extends plugin {
           api = r.api
           model = r.model
         } catch (toolErr) {
-          // 上游不支持 tools 时回退纯文本对话
           logger?.warn?.(
             `[grok2api-chat-plugin] tools 失败，回退纯对话: ${toolErr.message}`,
           )
-          const r = await chatCompletions({ messages })
+          const r = await chatCompletions({ messages: msgsForModel })
           content = collapseDupReply(String(r.content || ""))
           api = r.api
           model = r.model
         }
       } else {
-        const r = await chatCompletions({ messages })
+        if (c.chatToolsEnable !== false) {
+          logger?.debug?.(
+            `[grok2api-chat-plugin] skip media tools (no explicit gen intent): ${String(prompt || "").slice(0, 40)}`,
+          )
+        }
+        const r = await chatCompletions({ messages: msgsForModel })
         content = collapseDupReply(String(r.content || ""))
         api = r.api
         model = r.model

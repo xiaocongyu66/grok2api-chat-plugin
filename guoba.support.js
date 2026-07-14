@@ -84,7 +84,7 @@ export function supportGuoba() {
           label: "对话内工具调用",
           component: "Switch",
           bottomHelpMessage:
-            "开=聊天时模型可自动调 generate_image / generate_video；结果用合并聊天记录转发（#生图/#生视频仍可用）",
+            "开=仅当用户明确说「画/生成图/做视频」时才挂工具；说「描述」只用文字。结果合并转发。详见 docs/TOOLS.md",
         },
         {
           field: "chatToolImage",
@@ -100,7 +100,8 @@ export function supportGuoba() {
           field: "chatToolMaxRounds",
           label: "工具最大往返轮数",
           component: "InputNumber",
-          componentProps: { min: 1, max: 5 },
+          bottomHelpMessage: "建议 2；每轮最多 1 次工具，成功生图后不再重试",
+          componentProps: { min: 1, max: 3 },
         },
         { field: "imageModel", label: "图片模型", component: "Input" },
         { field: "videoModel", label: "视频模型", component: "Input" },
