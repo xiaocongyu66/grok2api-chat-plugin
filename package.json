@@ -1,0 +1,8 @@
+{
+  "name": "grok2api-chat-plugin",
+  "version": "1.0.0",
+  "description": "TRSS-Yunzai 插件：调用 grok2api 文本对话 / 生图 / 生视频，媒体以合并转发发送；支持锅巴后台配置",
+  "type": "module",
+  "author": "grok-free-register",
+  "license": "MIT"
+}
