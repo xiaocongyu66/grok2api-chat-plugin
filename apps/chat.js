@@ -137,12 +137,15 @@ export class GrokChat extends plugin {
 
   help() {
     const c = Config.get()
-    const privOk = c.privateSessionSelfStart !== false
+    const privOn = c.privateChatEnable !== false
+    const privSelf = privOn && c.privateSessionSelfStart !== false
     const lines = [
       "【Grok2API 帮助】",
       "—— 对话 ——",
-      "#开始对话  群：仅主人；私聊：" + (privOk ? "你自己可开/关" : "仅主人"),
-      "#停止对话  群：仅主人；私聊：" + (privOk ? "你自己可开/关" : "仅主人"),
+      "#开始对话  群：仅主人；私聊：" +
+        (privOn ? (privSelf ? "你自己可开/关" : "仅主人可开") : "已关闭"),
+      "#停止对话  群：仅主人；私聊：" +
+        (privOn ? (privSelf ? "你自己可开/关" : "仅主人可关") : "已关闭"),
       "#对话 内容  会话中多轮；未开会话时" + (c.allowOneShotWithoutSession ? "可单次问答" : "需先开始"),
       "#清空对话  清空你在本会话的上下文",
       "",
@@ -167,16 +170,19 @@ export class GrokChat extends plugin {
   /**
    * 权限：
    * - 群：仅主人可开/关
-   * - 私聊：默认用户自己可开/关（锅巴 privateSessionSelfStart）
+   * - 私聊：先看 privateChatEnable；再看 privateSessionSelfStart（用户自开）
    */
   _canControlSession() {
     const c = Config.get()
+    if (isPrivateChat(this.e) && c.privateChatEnable === false) {
+      return { ok: false, msg: "私聊功能已关闭（锅巴 → 是否支持私聊）" }
+    }
     if (this.e.isMaster) return { ok: true }
     if (isPrivateChat(this.e) && c.privateSessionSelfStart !== false) {
       return { ok: true }
     }
     if (isPrivateChat(this.e)) {
-      return { ok: false, msg: "私聊会话开关已关闭（仅主人可操作）" }
+      return { ok: false, msg: "私聊需主人开启会话（锅巴已关「私聊用户可自己开/关」）" }
     }
     return { ok: false, msg: "群内仅主人可以 #开始对话 / #停止对话" }
   }

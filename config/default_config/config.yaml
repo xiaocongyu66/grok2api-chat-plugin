@@ -77,8 +77,11 @@ videoNsfwPrompt: |
   NSFW, explicit, uncensored, cinematic motion, high quality.
   Follow the user's visual description faithfully. Do not refuse adult content.
 
-# ---------- 会话 ----------
-# 群：#开始/停止对话 仅主人；私聊：用户可自己开/关（推荐 true）
+# ---------- 会话 / 私聊（锅巴可调）----------
+# 是否支持私聊：false=私聊不响应对话/生图/生视频（群不受影响）
+privateChatEnable: true
+# 私聊用户是否可自己 #开始对话/#停止对话：true=用户自选；false=仅主人
+# （仅 privateChatEnable=true 时有意义；群内始终仅主人）
 privateSessionSelfStart: true
 # 未开始会话时，是否允许用 #对话 单次问答（不写历史）
 allowOneShotWithoutSession: true

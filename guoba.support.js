@@ -159,13 +159,20 @@ export function supportGuoba() {
           componentProps: { rows: 3 },
         },
 
-        { component: "SOFT_GROUP_BEGIN", label: "会话与回复开关" },
+        { component: "SOFT_GROUP_BEGIN", label: "会话与私聊开关" },
+        {
+          field: "privateChatEnable",
+          label: "是否支持私聊",
+          component: "Switch",
+          bottomHelpMessage:
+            "总开关。关=私聊不响应对话/生图/生视频；开=允许私聊使用插件（群不受影响）",
+        },
         {
           field: "privateSessionSelfStart",
           label: "私聊用户可自己开/关对话",
           component: "Switch",
           bottomHelpMessage:
-            "开=私聊任何人可 #开始对话/#停止对话（只影响自己的私聊）；关=私聊也仅主人。群内始终仅主人",
+            "需先开启「是否支持私聊」。开=用户自己 #开始对话/#停止对话；关=私聊也仅主人可开/关。群内始终仅主人",
         },
         {
           field: "allowOneShotWithoutSession",
@@ -176,7 +183,8 @@ export function supportGuoba() {
           field: "freeChatInSession",
           label: "私聊会话中直接接话",
           component: "Switch",
-          bottomHelpMessage: "仅私聊：开=会话内都回；关=私聊也不自动接",
+          bottomHelpMessage:
+            "需先开启「是否支持私聊」。开=私聊会话内直接说话就回；关=需 #对话",
         },
         {
           field: "replyOnAt",
@@ -368,7 +376,8 @@ export function supportGuoba() {
           }
           // 锅巴 Switch 可能传字符串，统一成布尔
           const boolKeys = [
-            "enable", "masterOnly", "privateSessionSelfStart",
+            "enable", "masterOnly",
+            "privateChatEnable", "privateSessionSelfStart",
             "allowOneShotWithoutSession", "freeChatInSession",
             "replyOnAt", "atReplyRequireQuestion", "atReplyAtUser", "replyOnQuote",
             "activeReplyOthers", "activeReplyAtUser", "passImages",

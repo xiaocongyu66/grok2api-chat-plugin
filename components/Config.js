@@ -221,6 +221,8 @@ class Config {
       videoPromptSuffix: str(c.videoPromptSuffix),
       videoNsfwEnable: c.videoNsfwEnable !== false,
       videoNsfwPrompt: str(c.videoNsfwPrompt),
+      // 是否支持私聊（总开关）；关=私聊对话/生图/生视频均不可用
+      privateChatEnable: c.privateChatEnable !== false,
       // 私聊：用户自己 #开始对话 / #停止对话（默认开）；群仍仅主人
       privateSessionSelfStart: c.privateSessionSelfStart !== false,
       allowOneShotWithoutSession: c.allowOneShotWithoutSession !== false,
