@@ -1,8 +1,9 @@
 import Config from "../components/Config.js"
 import { checkAccess } from "../lib/access.js"
-import { chatCompletions } from "../lib/client.js"
-import { sendForward } from "../lib/forward.js"
+import { chatCompletions, chatWithMediaTools } from "../lib/client.js"
+import { sendForward, sendImagesForward, sendVideoForward } from "../lib/forward.js"
 import { extractImageUrls } from "../lib/images.js"
+import { buildMediaToolDefs } from "../lib/media-tools.js"
 import { reviewOutboundContent } from "../lib/outbound-review.js"
 import { buildChatMessages } from "../lib/prompt.js"
 import {
@@ -157,11 +158,12 @@ export class GrokChat extends plugin {
       "",
       "—— 生图 / 生视频 ——",
       "#生图 描述   #生视频 描述",
+      "会话中也可直接说「画一只猫/做个视频…」，模型会当工具调用生成，结果合并转发",
       "",
       "—— 其它 ——",
       "#模型列表  #连通测试(主人)",
       "",
-      `对话传图：${c.passImages ? "开" : "关"}（发图+文字可看图回答）`,
+      `对话传图：${c.passImages ? "开" : "关"} · 对话工具：${c.chatToolsEnable !== false ? "开" : "关"}`,
       `本会话：${isSessionActive(this.e) ? "进行中" : "未开始"} (${scopeKey(this.e)})`,
     ]
     return this.reply(lines.join("\n"))
@@ -430,43 +432,116 @@ export class GrokChat extends plugin {
     const messages = buildChatMessages(this.e, prompt || "", hist, imgs)
 
     try {
-      // 严格走 OpenAI Chat Completions（由 chatApiMode 控制，默认 chat）
-      const { content: rawContent, api, model } = await chatCompletions({ messages })
-      // 二次保险：若上游/解析仍把整段拼了两遍，发 QQ 前再折叠
-      let content = String(rawContent || "")
-      content = collapseDupReply(content)
+      // 对话可挂载生图/生视频 tools；结果一律合并聊天记录转发
+      const tools =
+        c.chatToolsEnable !== false ? buildMediaToolDefs(c) : []
+      let content = ""
+      let api = "chat"
+      let model = c.chatModel
+      let mediaResults = []
+
+      if (tools.length) {
+        try {
+          const r = await chatWithMediaTools({
+            messages,
+            tools,
+            imageUrls: imgs,
+            maxRounds: c.chatToolMaxRounds || 3,
+            onToolStart: (name, args) => {
+              logger?.info?.(
+                `[grok2api-chat-plugin] tool start ${name} prompt=${String(args?.prompt || "").slice(0, 80)}`,
+              )
+              this.reply(
+                name === "generate_video"
+                  ? "正在用工具生成视频，请稍候…"
+                  : "正在用工具生成图片，请稍候…",
+                false,
+                { recallMsg: 30 },
+              ).catch(() => {})
+            },
+          })
+          content = collapseDupReply(String(r.content || ""))
+          mediaResults = r.mediaResults || []
+          api = r.api
+          model = r.model
+        } catch (toolErr) {
+          // 上游不支持 tools 时回退纯文本对话
+          logger?.warn?.(
+            `[grok2api-chat-plugin] tools 失败，回退纯对话: ${toolErr.message}`,
+          )
+          const r = await chatCompletions({ messages })
+          content = collapseDupReply(String(r.content || ""))
+          api = r.api
+          model = r.model
+        }
+      } else {
+        const r = await chatCompletions({ messages })
+        content = collapseDupReply(String(r.content || ""))
+        api = r.api
+        model = r.model
+      }
+
       logger?.info?.(
-        `[grok2api-chat-plugin] chat ok api=${api} model=${model} len=${content.length}`,
+        `[grok2api-chat-plugin] chat ok api=${api} model=${model} len=${content.length} media=${mediaResults.length}`,
       )
-      // 历史只记文本；有图时加标记
-      const histUser =
+
+      // 历史只记文本；有图时加标记；工具调用记摘要
+      let histUser =
         imgs.length > 0
           ? `${prompt || ""}`.trim() + (prompt ? "\n" : "") + `[用户发送了${imgs.length}张图片]`
           : prompt
-      if (useHistory) pushTurn(this.e, histUser, content, c.maxHistory)
-
-      // 模块 B：出站审查 — 群聊 + 私聊均生效（与 ST 成年内容拆开）
-      const channel =
-        this.e.isPrivate || this.e.message_type === "private" || !this.e.group_id
-          ? "private"
-          : "group"
-      const nsfwCheck = await reviewOutboundContent(content, c, { channel })
-      const tooLong =
-        c.chatForwardThreshold > 0 && content.length >= c.chatForwardThreshold
-
-      if (nsfwCheck.forward || tooLong) {
-        const title = nsfwCheck.forward
-          ? `Grok 对话（出站审查·合并发送·${channel === "private" ? "私聊" : "群"}）`
-          : "Grok 对话"
-        if (nsfwCheck.forward) {
-          logger?.info?.(
-            `[grok2api-chat-plugin] 出站审查合并转发 channel=${channel} method=${nsfwCheck.method} score=${nsfwCheck.score} hits=${(nsfwCheck.hits || []).slice(0, 5).join(",")}`,
+      let histAsst = content
+      if (mediaResults.length) {
+        const note = mediaResults
+          .map(m =>
+            m.type === "image"
+              ? `[生成图片×${(m.urls || []).length}]`
+              : `[生成视频]`,
           )
+          .join(" ")
+        histAsst = `${content}\n${note}`.trim()
+      }
+      if (useHistory) pushTurn(this.e, histUser, histAsst, c.maxHistory)
+
+      // 1) 媒体工具结果 → 合并聊天记录转发
+      for (const m of mediaResults) {
+        if (m.type === "image" && m.urls?.length) {
+          await sendImagesForward(
+            this.e,
+            m.urls,
+            m.userPrompt ? `提示：${m.userPrompt}` : "",
+          )
+        } else if (m.type === "video" && m.url) {
+          await sendVideoForward(this.e, m.url, {
+            prompt: m.userPrompt,
+            duration: m.duration,
+          })
         }
-        const chunks = splitForForward(content, 900)
-        await sendForward(this.e, chunks, title)
-      } else {
-        await this.reply(content, !!atUser)
+      }
+
+      // 2) 文本：出站审查（群+私聊）/ 长文 → 合并转发
+      if (content.trim()) {
+        const channel =
+          this.e.isPrivate || this.e.message_type === "private" || !this.e.group_id
+            ? "private"
+            : "group"
+        const nsfwCheck = await reviewOutboundContent(content, c, { channel })
+        const tooLong =
+          c.chatForwardThreshold > 0 && content.length >= c.chatForwardThreshold
+
+        if (nsfwCheck.forward || tooLong) {
+          const title = nsfwCheck.forward
+            ? `Grok 对话（出站审查·合并发送·${channel === "private" ? "私聊" : "群"}）`
+            : "Grok 对话"
+          if (nsfwCheck.forward) {
+            logger?.info?.(
+              `[grok2api-chat-plugin] 出站审查合并转发 channel=${channel} method=${nsfwCheck.method} score=${nsfwCheck.score}`,
+            )
+          }
+          await sendForward(this.e, splitForForward(content, 900), title)
+        } else {
+          await this.reply(content, !!atUser)
+        }
       }
     } catch (err) {
       logger.error(`[grok2api-chat-plugin] chat: ${err.stack || err}`)

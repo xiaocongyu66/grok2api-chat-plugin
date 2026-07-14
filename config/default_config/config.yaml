@@ -14,6 +14,12 @@ chatApiMode: "chat"
 passImages: true
 # 单次最多传几张图
 passImagesMax: 4
+# 对话内工具：模型可 function-call 调生图/生视频（结果合并转发）
+chatToolsEnable: true
+chatToolImage: true
+chatToolVideo: true
+# 单次对话最多工具往返轮数
+chatToolMaxRounds: 3
 imageModel: "grok-imagine-image"
 videoModel: "grok-imagine-video"
 

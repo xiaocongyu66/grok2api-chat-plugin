@@ -79,6 +79,29 @@ export function supportGuoba() {
           component: "InputNumber",
           componentProps: { min: 1, max: 8 },
         },
+        {
+          field: "chatToolsEnable",
+          label: "对话内工具调用",
+          component: "Switch",
+          bottomHelpMessage:
+            "开=聊天时模型可自动调 generate_image / generate_video；结果用合并聊天记录转发（#生图/#生视频仍可用）",
+        },
+        {
+          field: "chatToolImage",
+          label: "工具：生图",
+          component: "Switch",
+        },
+        {
+          field: "chatToolVideo",
+          label: "工具：生视频",
+          component: "Switch",
+        },
+        {
+          field: "chatToolMaxRounds",
+          label: "工具最大往返轮数",
+          component: "InputNumber",
+          componentProps: { min: 1, max: 5 },
+        },
         { field: "imageModel", label: "图片模型", component: "Input" },
         { field: "videoModel", label: "视频模型", component: "Input" },
 
@@ -381,6 +404,7 @@ export function supportGuoba() {
             "allowOneShotWithoutSession", "freeChatInSession",
             "replyOnAt", "atReplyRequireQuestion", "atReplyAtUser", "replyOnQuote",
             "activeReplyOthers", "activeReplyAtUser", "passImages",
+            "chatToolsEnable", "chatToolImage", "chatToolVideo",
             "imageNsfwEnable", "videoNsfwEnable",
             "adultContentEnable", "chatJailbreakEnable",
             "outboundReviewEnable", "outboundReviewAi",

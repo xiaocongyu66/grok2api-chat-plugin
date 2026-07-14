@@ -43,6 +43,8 @@ git clone https://github.com/xiaocongyu66/grok2api-chat-plugin.git
 | **对话接口 chatApiMode** | 默认 **`chat`**（严格 OpenAI）/ `auto` / `responses` |
 | **对话传递图片 passImages** | 开=用户发图一并给模型看图；关=忽略消息内图片 |
 | 单次最多传图数 | 默认 4 |
+| **对话内工具 chatToolsEnable** | 开=聊天可 function-call 生图/生视频；结果**合并聊天记录**转发 |
+| 工具：生图 / 生视频 | 可分别开关；`#生图`/`#生视频` 指令仍保留 |
 | **成年内容 adultContentEnable** | SillyTavern 风格：对话破甲+NSFW 辅助；生图/生视频增强（模块 A） |
 | **出站审查 outboundReviewEnable** | 发送前 AI/关键词审查；**群聊+私聊均生效**；NSFW→合并聊天记录（模块 B） |
 | **审查范围 outboundReviewScope** | `all`（默认）/ `group` / `private` |

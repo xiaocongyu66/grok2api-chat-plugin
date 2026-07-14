@@ -200,6 +200,11 @@ class Config {
       // 对话是否把用户消息里的图片传给模型（多模态）
       passImages: c.passImages !== false,
       passImagesMax: Math.min(8, Math.max(1, Number(c.passImagesMax) || 4)),
+      // 对话内 OpenAI tools：生图/生视频
+      chatToolsEnable: c.chatToolsEnable !== false,
+      chatToolImage: c.chatToolImage !== false,
+      chatToolVideo: c.chatToolVideo !== false,
+      chatToolMaxRounds: Math.min(5, Math.max(1, Number(c.chatToolMaxRounds) || 3)),
       imageModel: str(c.imageModel, "grok-imagine-image").trim(),
       videoModel: str(c.videoModel, "grok-imagine-video").trim(),
       timeoutMs: Number(c.timeoutMs) > 0 ? Number(c.timeoutMs) : 180000,
