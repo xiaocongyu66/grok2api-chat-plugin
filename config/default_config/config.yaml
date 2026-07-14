@@ -18,8 +18,8 @@ passImagesMax: 4
 chatToolsEnable: true
 chatToolImage: true
 chatToolVideo: true
-# 单次最多工具往返（建议 2：一次生成 + 一次收尾）
-chatToolMaxRounds: 2
+# 单次最多工具往返轮数（锅巴可改 1–10；默认 3）
+chatToolMaxRounds: 3
 imageModel: "grok-imagine-image"
 videoModel: "grok-imagine-video"
 

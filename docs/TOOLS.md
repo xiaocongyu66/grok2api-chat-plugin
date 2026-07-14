@@ -55,7 +55,7 @@
 | `chatToolsEnable` | true | 总开关 |
 | `chatToolImage` | true | 允许生图工具 |
 | `chatToolVideo` | true | 允许生视频工具 |
-| `chatToolMaxRounds` | 2 | 工具往返上限（建议 2） |
+| `chatToolMaxRounds` | 3 | 工具往返上限，**锅巴 1–10 可配**（默认 3） |
 
 ---
 
@@ -187,7 +187,7 @@ POST /v1/chat/completions
 | 生视频成功次数 | ≤ 1 / 用户消息 |
 | 失败/429 后 | 同类工具封锁 |
 | 「正在生成…」提示 | 每种工具只提示 1 次 |
-| maxRounds | 默认 2（生成 + 收尾） |
+| maxRounds | 由锅巴 `chatToolMaxRounds` 决定（默认 3，范围 1–10） |
 
 ---
 

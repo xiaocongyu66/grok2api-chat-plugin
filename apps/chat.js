@@ -472,7 +472,7 @@ export class GrokChat extends plugin {
             messages: msgsForModel,
             tools,
             imageUrls: imgs,
-            maxRounds: Math.min(2, c.chatToolMaxRounds || 2),
+            maxRounds: c.chatToolMaxRounds || 3,
             onToolStart: (name, args) => {
               logger?.info?.(
                 `[grok2api-chat-plugin] tool start ${name} prompt=${String(args?.prompt || "").slice(0, 80)}`,

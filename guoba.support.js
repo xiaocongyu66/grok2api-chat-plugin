@@ -100,8 +100,9 @@ export function supportGuoba() {
           field: "chatToolMaxRounds",
           label: "工具最大往返轮数",
           component: "InputNumber",
-          bottomHelpMessage: "建议 2；每轮最多 1 次工具，成功生图后不再重试",
-          componentProps: { min: 1, max: 3 },
+          bottomHelpMessage:
+            "后台自定义 1–10，默认 3。每轮仍最多 1 次工具；数值越大允许越多轮 tool→再回复",
+          componentProps: { min: 1, max: 10 },
         },
         { field: "imageModel", label: "图片模型", component: "Input" },
         { field: "videoModel", label: "视频模型", component: "Input" },

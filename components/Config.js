@@ -204,7 +204,8 @@ class Config {
       chatToolsEnable: c.chatToolsEnable !== false,
       chatToolImage: c.chatToolImage !== false,
       chatToolVideo: c.chatToolVideo !== false,
-      chatToolMaxRounds: Math.min(3, Math.max(1, Number(c.chatToolMaxRounds) || 2)),
+      // 锅巴可配：工具往返轮数（默认 3）
+      chatToolMaxRounds: Math.min(10, Math.max(1, Number(c.chatToolMaxRounds) || 3)),
       imageModel: str(c.imageModel, "grok-imagine-image").trim(),
       videoModel: str(c.videoModel, "grok-imagine-video").trim(),
       timeoutMs: Number(c.timeoutMs) > 0 ? Number(c.timeoutMs) : 180000,
