@@ -31,6 +31,10 @@ imageAspectRatio: ""
 maxHistory: 20
 chatForwardThreshold: 800
 forwardNickname: "Grok"
+# 对话回复 NSFW 审查：命中敏感词则用「合并聊天记录」发送（不直发群聊）
+chatNsfwForward: true
+# 额外关键词（逗号/换行分隔），叠加在内置词表上
+chatNsfwExtraKeywords: ""
 
 # ---------- 对话系统提示（始终注入，用户无法覆盖）----------
 chatSystemPrompt: |

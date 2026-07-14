@@ -43,6 +43,8 @@ git clone https://github.com/xiaocongyu66/grok2api-chat-plugin.git
 | **对话接口 chatApiMode** | 默认 **`chat`**（严格 OpenAI）/ `auto` / `responses` |
 | **对话传递图片 passImages** | 开=用户发图一并给模型看图；关=忽略消息内图片 |
 | 单次最多传图数 | 默认 4 |
+| **NSFW 合并发送 chatNsfwForward** | 开=回复文本命中 NSFW 词表则用合并聊天记录发送 |
+| NSFW 额外关键词 | 逗号/换行分隔，叠加内置词表 |
 | 系统提示词 | **始终注入**，用户无法覆盖 |
 
 #### 对话接口说明

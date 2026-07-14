@@ -236,6 +236,9 @@ class Config {
       groupWhitelist: Array.isArray(c.groupWhitelist) ? c.groupWhitelist.map(String) : [],
       forwardNickname: str(c.forwardNickname, "Grok"),
       chatForwardThreshold: Number(c.chatForwardThreshold) >= 0 ? Number(c.chatForwardThreshold) : 800,
+      // NSFW 文本 → 合并聊天记录
+      chatNsfwForward: c.chatNsfwForward !== false,
+      chatNsfwExtraKeywords: str(c.chatNsfwExtraKeywords),
     }
   }
 

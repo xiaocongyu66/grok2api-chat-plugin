@@ -3,6 +3,7 @@ import { checkAccess } from "../lib/access.js"
 import { chatCompletions } from "../lib/client.js"
 import { sendForward } from "../lib/forward.js"
 import { extractImageUrls } from "../lib/images.js"
+import { shouldForwardNsfw } from "../lib/nsfw.js"
 import { buildChatMessages } from "../lib/prompt.js"
 import {
   checkCooldown,
@@ -62,6 +63,49 @@ function inflightKey(e) {
   const gid = e?.group_id ?? "private"
   const text = String(e?.msg || e?.raw_message || "").slice(0, 80)
   return `${gid}:${uid}:${msgId || `${text}:${Math.floor(Date.now() / 2000)}`}`
+}
+
+/** 合并转发时按长度/段落拆成多条，避免单节点过长 */
+function splitForForward(text, maxLen = 900) {
+  const s = String(text || "")
+  if (s.length <= maxLen) return [s]
+  const parts = []
+  // 优先按双换行
+  const paras = s.split(/\n{2,}/)
+  let buf = ""
+  const flush = () => {
+    if (buf) {
+      parts.push(buf)
+      buf = ""
+    }
+  }
+  for (const p of paras) {
+    const piece = p.trim()
+    if (!piece) continue
+    if (!buf) {
+      if (piece.length <= maxLen) buf = piece
+      else {
+        // 硬切
+        for (let i = 0; i < piece.length; i += maxLen) {
+          parts.push(piece.slice(i, i + maxLen))
+        }
+      }
+      continue
+    }
+    if (buf.length + 2 + piece.length <= maxLen) {
+      buf = `${buf}\n\n${piece}`
+    } else {
+      flush()
+      if (piece.length <= maxLen) buf = piece
+      else {
+        for (let i = 0; i < piece.length; i += maxLen) {
+          parts.push(piece.slice(i, i + maxLen))
+        }
+      }
+    }
+  }
+  flush()
+  return parts.length ? parts : [s]
 }
 
 export class GrokChat extends plugin {
@@ -346,8 +390,23 @@ export class GrokChat extends plugin {
           : prompt
       if (useHistory) pushTurn(this.e, histUser, content, c.maxHistory)
 
-      if (c.chatForwardThreshold > 0 && content.length >= c.chatForwardThreshold) {
-        await sendForward(this.e, [content], "Grok 对话")
+      // 发送前审查：NSFW → 合并聊天记录；过长 → 合并转发
+      const nsfwCheck = shouldForwardNsfw(content, c)
+      const tooLong =
+        c.chatForwardThreshold > 0 && content.length >= c.chatForwardThreshold
+
+      if (nsfwCheck.forward || tooLong) {
+        const title = nsfwCheck.forward
+          ? "Grok 对话（内容审查·合并发送）"
+          : "Grok 对话"
+        if (nsfwCheck.forward) {
+          logger?.info?.(
+            `[grok2api-chat-plugin] NSFW 合并转发 score=${nsfwCheck.score} hits=${(nsfwCheck.hits || []).slice(0, 5).join(",")}`,
+          )
+        }
+        // 长文拆成多段节点，阅读更友好
+        const chunks = splitForForward(content, 900)
+        await sendForward(this.e, chunks, title)
       } else {
         await this.reply(content, !!atUser)
       }

@@ -103,6 +103,20 @@ export function supportGuoba() {
           bottomHelpMessage: "0=关闭",
           componentProps: { min: 0, max: 20000 },
         },
+        {
+          field: "chatNsfwForward",
+          label: "NSFW 用合并聊天记录发送",
+          component: "Switch",
+          bottomHelpMessage:
+            "开启后：即将发出的对话文本若命中 NSFW 关键词，改为「合并转发/聊天记录」发送，不直发群消息",
+        },
+        {
+          field: "chatNsfwExtraKeywords",
+          label: "NSFW 额外关键词",
+          component: "InputTextArea",
+          bottomHelpMessage: "逗号或换行分隔，叠加内置词表；命中即合并发送",
+          componentProps: { rows: 3 },
+        },
 
         { component: "SOFT_GROUP_BEGIN", label: "会话与回复开关" },
         {
