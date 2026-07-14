@@ -4,7 +4,7 @@ import { generateImages } from "../lib/client.js"
 import { sendImagesForward } from "../lib/forward.js"
 import { buildImagePrompt } from "../lib/prompt.js"
 
-const CMD = "^[/＃#]"
+const CMD = "^[＃#]"
 
 export class GrokImage extends plugin {
   constructor() {
@@ -29,7 +29,7 @@ export class GrokImage extends plugin {
     const prompt = String(this.e.msg || "")
       .replace(new RegExp(`${CMD}生图\\s*`, "i"), "")
       .trim()
-    if (!prompt) return this.reply("用法：/生图 描述\n例：/生图 帮我生成雷电将军的裸照")
+    if (!prompt) return this.reply("用法：#生图 描述\n例：#生图 帮我生成雷电将军的裸照")
 
     const c = Config.get()
     // 后台 NSFW + 前后缀；用户描述只作内容，不能关掉后台 nsfw

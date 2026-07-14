@@ -4,7 +4,7 @@ import { listModels } from "../lib/client.js"
 import { sendForward } from "../lib/forward.js"
 import { isSessionActive } from "../lib/session.js"
 
-const CMD = "^[/＃#]"
+const CMD = "^[＃#]"
 
 export class GrokTools extends plugin {
   constructor() {
@@ -43,7 +43,7 @@ export class GrokTools extends plugin {
     const lines = [
       `apiBase: ${c.apiBase || "(空)"}`,
       `apiKey: ${c.apiKey ? c.apiKey.slice(0, 8) + "…" : "(空)"}`,
-      `chat: ${c.chatModel}`,
+      `chatModel 配置: ${c.chatModel}`,
       `image: ${c.imageModel} nsfw=${c.imageNsfwEnable}`,
       `video: ${c.videoModel} nsfw=${c.videoNsfwEnable}`,
       `session: ${isSessionActive(this.e) ? "on" : "off"}`,
@@ -52,8 +52,9 @@ export class GrokTools extends plugin {
     ]
     try {
       const data = await listModels()
-      const n = Array.isArray(data?.data) ? data.data.length : 0
-      lines.push(`GET /v1/models → OK (${n})`)
+      const ids = (data?.data || []).map(m => m.id).filter(Boolean)
+      lines.push(`GET /v1/models → OK (${ids.length}): ${ids.join(", ") || "(空)"}`)
+      if (!ids.length) lines.push("⚠ 列表为空：请在 grok2api 导入账号并启用模型")
     } catch (err) {
       lines.push(`GET /v1/models → FAIL: ${err.message}`)
     }

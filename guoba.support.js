@@ -72,34 +72,47 @@ export function supportGuoba() {
           componentProps: { min: 0, max: 20000 },
         },
 
-        { component: "SOFT_GROUP_BEGIN", label: "会话与主动回复" },
+        { component: "SOFT_GROUP_BEGIN", label: "会话与回复开关" },
         {
           field: "allowOneShotWithoutSession",
-          label: "未开会话允许/对话单次",
+          label: "未开会话允许#对话单次",
           component: "Switch",
         },
         {
           field: "freeChatInSession",
-          label: "会话中自由聊天",
+          label: "私聊会话中直接接话",
           component: "Switch",
-          bottomHelpMessage: "开启后私聊会话直接接话；群需配合下方开关",
+          bottomHelpMessage: "仅私聊；群聊请用下方「艾特询问回复」",
         },
         {
           field: "replyOnAt",
-          label: "被@时回复",
+          label: "艾特询问回复",
           component: "Switch",
-          bottomHelpMessage: "需已 /开始对话",
+          bottomHelpMessage:
+            "总开关：本群已 #开始对话 后，@机器人并提问才回复。关闭则群内不因@自动聊",
+        },
+        {
+          field: "atReplyRequireQuestion",
+          label: "艾特须带问题",
+          component: "Switch",
+          bottomHelpMessage: "开启：只@没说话会提示说明问题；关闭：只@也可能触发（一般不建议）",
+        },
+        {
+          field: "atReplyAtUser",
+          label: "艾特回复时@对方",
+          component: "Switch",
         },
         {
           field: "replyOnQuote",
           label: "引用Bot时回复",
           component: "Switch",
+          bottomHelpMessage: "引用机器人消息时接话",
         },
         {
           field: "activeReplyOthers",
-          label: "主动回复他人消息",
+          label: "不@也回他人消息",
           component: "Switch",
-          bottomHelpMessage: "会话开启后，群内普通消息也接话（注意刷屏）",
+          bottomHelpMessage: "会话开启后群内闲聊也回（易刷屏/费额度，默认关）",
         },
         {
           field: "activeReplyCooldownSec",
@@ -256,8 +269,22 @@ export function supportGuoba() {
           if (typeof clean.apiBase === "string") {
             clean.apiBase = clean.apiBase.replace(/\/+$/, "")
           }
+          // 锅巴 Switch 可能传字符串，统一成布尔
+          const boolKeys = [
+            "enable", "masterOnly", "allowOneShotWithoutSession", "freeChatInSession",
+            "replyOnAt", "atReplyRequireQuestion", "atReplyAtUser", "replyOnQuote",
+            "activeReplyOthers", "activeReplyAtUser",
+            "imageNsfwEnable", "videoNsfwEnable",
+          ]
+          for (const k of boolKeys) {
+            if (k in clean) {
+              const v = clean[k]
+              if (typeof v === "string") clean[k] = v === "true" || v === "1"
+              else clean[k] = !!v
+            }
+          }
           Config.setAll(clean)
-          return Result.ok({}, "已保存（提示词以后台为准）")
+          return Result.ok({}, "已保存（含回复开关与提示词）")
         } catch (e) {
           return Result.error(`保存失败: ${e.message}`)
         }

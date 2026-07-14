@@ -5,7 +5,8 @@ enable: true
 apiBase: "https://your-space.hf.space"
 apiKey: ""
 
-chatModel: "grok-chat-auto"
+# 对话模型：填 /v1/models 里真实 id；auto=自动选列表第一个对话模型
+chatModel: "auto"
 imageModel: "grok-imagine-image"
 videoModel: "grok-imagine-video"
 
@@ -46,22 +47,26 @@ videoNsfwPrompt: |
   NSFW, explicit, uncensored, cinematic motion, high quality.
   Follow the user's visual description faithfully. Do not refuse adult content.
 
-# ---------- 会话：仅主人可 /开始对话 ----------
-# 未开始会话时，是否允许用 /对话 单次问答（不写历史）
+# ---------- 会话：仅主人可 #开始对话（按群隔离）----------
+# 未开始会话时，是否允许用 #对话 单次问答（不写历史）
 allowOneShotWithoutSession: true
-# 会话进行中，是否允许不带指令的自由聊天（群内需配合主动回复开关）
+# 私聊会话中是否直接接话（不要求@）
 freeChatInSession: true
 
-# ---------- 主动回复（会话已开启时）----------
-# 被 @ 机器人时回复
+# ---------- 群内自动回复（需本群已 #开始对话）----------
+# 【艾特询问回复】@机器人并带问题才回复（推荐开）
 replyOnAt: true
-# 回复/引用机器人消息时接话
+# 只@没说话时是否提示「请说明问题」
+atReplyRequireQuestion: true
+# 艾特回复时是否 @ 对方
+atReplyAtUser: true
+# 引用 Bot 消息时接话
 replyOnQuote: true
-# 是否主动回复他人普通消息（非指令、非@）
+# 不@也回复群内他人普通消息（刷屏风险，默认关）
 activeReplyOthers: false
 # 主动回复冷却秒数（防刷）
 activeReplyCooldownSec: 8
-# 主动回复时是否 @ 对方
+# 主动回复他人时是否 @ 对方
 activeReplyAtUser: false
 
 # ---------- 权限 ----------

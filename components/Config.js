@@ -212,7 +212,10 @@ class Config {
       videoNsfwPrompt: str(c.videoNsfwPrompt),
       allowOneShotWithoutSession: c.allowOneShotWithoutSession !== false,
       freeChatInSession: c.freeChatInSession !== false,
+      // 艾特询问回复（主开关）
       replyOnAt: c.replyOnAt !== false,
+      atReplyRequireQuestion: c.atReplyRequireQuestion !== false,
+      atReplyAtUser: c.atReplyAtUser !== false,
       replyOnQuote: c.replyOnQuote !== false,
       activeReplyOthers: !!c.activeReplyOthers,
       activeReplyCooldownSec: Math.max(0, Number(c.activeReplyCooldownSec) || 8),

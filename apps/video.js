@@ -4,7 +4,7 @@ import { generateVideo } from "../lib/client.js"
 import { sendVideoForward } from "../lib/forward.js"
 import { buildVideoPrompt } from "../lib/prompt.js"
 
-const CMD = "^[/＃#]"
+const CMD = "^[＃#]"
 
 export class GrokVideo extends plugin {
   constructor() {
@@ -39,7 +39,7 @@ export class GrokVideo extends plugin {
     }
 
     if (!prompt && !imageUrl) {
-      return this.reply("用法：/生视频 描述\n或先发图再 /生视频 镜头说明")
+      return this.reply("用法：#生视频 描述\n或先发图再 #生视频 镜头说明")
     }
 
     const c = Config.get()

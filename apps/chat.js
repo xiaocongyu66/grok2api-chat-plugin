@@ -8,13 +8,15 @@ import {
   clearHistory,
   getHistory,
   isSessionActive,
+  listActiveSessions,
   pushTurn,
+  scopeKey,
   startSession,
   stopSession,
 } from "../lib/session.js"
 
-/** 指令前缀：/ 或 # */
-const CMD = "^[/＃#]"
+/** 指令前缀：# */
+const CMD = "^[＃#]"
 
 function stripCmd(msg, ...names) {
   const re = new RegExp(`${CMD}(?:${names.join("|")})\\s*`, "i")
@@ -22,24 +24,23 @@ function stripCmd(msg, ...names) {
 }
 
 function isCommand(msg) {
-  return /^[/＃#]/.test(String(msg || "").trim())
+  return /^[＃#]/.test(String(msg || "").trim())
 }
 
 export class GrokChat extends plugin {
   constructor() {
     super({
       name: "Grok对话",
-      dsc: "会话制对话 + 主动回复",
+      dsc: "会话制对话 + 艾特询问回复（按群隔离）",
       event: "message",
       priority: 4500,
       rule: [
         { reg: `${CMD}帮助$`, fnc: "help" },
         { reg: `${CMD}开始对话$`, fnc: "start" },
-        { reg: `${CMD}(结束对话|关闭对话|停止对话)$`, fnc: "stop" },
+        { reg: `${CMD}(停止对话|结束对话|关闭对话)$`, fnc: "stop" },
         { reg: `${CMD}(清空对话|清空记忆|重置对话)$`, fnc: "clear" },
-        // 显式单次/继续对话
         { reg: `${CMD}(对话|聊天)\\s*.+`, fnc: "chatCmd" },
-        // 会话中自由聊 + 主动回复他人（最低优，最后匹配）
+        // 会话中：艾特询问 / 引用 / 可选主动回他人
         { reg: "^[\\s\\S]+", fnc: "freeOrActive", log: false },
       ],
     })
@@ -49,137 +50,184 @@ export class GrokChat extends plugin {
     const c = Config.get()
     const lines = [
       "【Grok2API 帮助】",
-      "—— 对话 ——",
-      "/开始对话  仅主人可开（开后本群/私聊进入会话）",
-      "/结束对话  仅主人",
-      "/对话 内容  会话中多轮；未开会话时" + (c.allowOneShotWithoutSession ? "可单次问答" : "不可用"),
-      "/清空对话  清空你的上下文",
-      "会话中：可直接说话；@" + (c.replyOnAt ? "开" : "关") +
-        " 引用Bot" + (c.replyOnQuote ? "开" : "关") +
-        " 主动回他人" + (c.activeReplyOthers ? "开" : "关"),
+      "—— 对话（按群隔离）——",
+      "#开始对话  仅主人；只开启【本群/本私聊】",
+      "#停止对话  仅主人；只关闭【本群/本私聊】，其它群不受影响",
+      "#对话 内容  会话中多轮；未开会话时" + (c.allowOneShotWithoutSession ? "可单次问答" : "需先开始"),
+      "#清空对话  清空你在本群的上下文",
       "",
-      "—— 生图（合并转发，支持 NSFW 后台提示）——",
-      "/生图 描述",
-      "例：/生图 帮我生成雷电将军的裸照",
+      "会话中自动回复（锅巴可开关）：",
+      `  · 艾特询问回复：${c.replyOnAt ? "开" : "关"}`,
+      `  · 艾特须带问题：${c.atReplyRequireQuestion ? "开" : "关"}`,
+      `  · 引用Bot消息：${c.replyOnQuote ? "开" : "关"}`,
+      `  · 不@也回别人：${c.activeReplyOthers ? "开" : "关"}`,
       "",
-      "—— 生视频（合并转发）——",
-      "/生视频 描述",
+      "—— 生图 / 生视频 ——",
+      "#生图 描述   #生视频 描述",
       "",
       "—— 其它 ——",
-      "/模型列表  /连通测试(主人)",
+      "#模型列表  #连通测试(主人)",
       "",
-      "※ 系统/生图/生视频提示词一律以后台（锅巴）为准，用户无法覆盖。",
-      `会话状态：${isSessionActive(this.e) ? "进行中" : "未开始"}`,
+      `本会话：${isSessionActive(this.e) ? "进行中" : "未开始"} (${scopeKey(this.e)})`,
     ]
     return this.reply(lines.join("\n"))
   }
 
   async start() {
-    if (!this.e.isMaster) return this.reply("仅主人可以 /开始对话")
+    if (!this.e.isMaster) return this.reply("仅主人可以 #开始对话")
     const a = checkAccess(this.e)
     if (!a.ok) return this.reply(a.msg)
-    startSession(this.e)
+    const scope = startSession(this.e)
+    const where = this.e.isGroup || this.e.group_id ? `本群 ${this.e.group_id}` : "本私聊"
     return this.reply(
-      "对话已开始。\n" +
-        "· 直接说话即可多轮聊天\n" +
-        "· /结束对话 关闭\n" +
-        "· 系统提示词仅由锅巴后台控制",
+      `对话已开始（仅 ${where}）。\n` +
+        "· @我并提问 即可回复\n" +
+        "· #停止对话 只关这里，其它群照常\n" +
+        `· scope=${scope}`,
     )
   }
 
   async stop() {
-    if (!this.e.isMaster) return this.reply("仅主人可以结束对话")
-    stopSession(this.e)
-    return this.reply("对话已结束，上下文已清理")
+    if (!this.e.isMaster) return this.reply("仅主人可以 #停止对话")
+    const scope = stopSession(this.e)
+    const where = this.e.isGroup || this.e.group_id ? `本群 ${this.e.group_id}` : "本私聊"
+    const others = listActiveSessions().filter(s => s !== scope)
+    return this.reply(
+      `对话已结束（仅 ${where}）。\n` +
+        (others.length ? `其它仍开启：${others.length} 个会话` : "当前没有其它进行中的会话"),
+    )
   }
 
   async clear() {
     const a = checkAccess(this.e)
     if (!a.ok) return this.reply(a.msg)
     clearHistory(this.e)
-    return this.reply("已清空你的对话记忆")
+    return this.reply("已清空你在本会话的对话记忆")
   }
 
   async chatCmd() {
     const prompt = stripCmd(this.e.msg, "对话", "聊天")
-    if (!prompt) return this.reply("用法：/对话 你好")
+    if (!prompt) return this.reply("用法：#对话 你好")
 
     const c = Config.get()
     const active = isSessionActive(this.e)
     if (!active && !c.allowOneShotWithoutSession) {
-      return this.reply("请先让主人发送 /开始对话")
+      return this.reply("请先让主人在本群发送 #开始对话")
     }
     return this._doChat(prompt, { useHistory: active })
   }
 
   /**
-   * 会话自由聊 / @ / 引用 / 主动回复他人
+   * 会话内：@询问优先；可选引用；可选主动回他人
    */
   async freeOrActive() {
-    if (isCommand(this.e.msg)) return false // 交给其它指令
+    if (isCommand(this.e.msg)) return false
 
     const c = Config.get()
     const a = checkAccess(this.e)
     if (!a.ok) return false
 
-    const active = isSessionActive(this.e)
-    if (!active) return false
+    // 严格按当前群/私聊的 session，不会串群
+    if (!isSessionActive(this.e)) return false
 
-    const text = String(this.e.msg || "").trim()
-    if (!text) return false
+    if (this.e.user_id != null && String(this.e.user_id) === String(this.e.self_id)) {
+      return false
+    }
 
-    // 机器人自己
-    if (this.e.user_id === this.e.self_id) return false
-
-    const atMe = !!(this.e.atBot || this.e.atme || this.e.at === this.e.self_id)
+    const atMe = this._isAtBot()
     const quoteMe = this._isQuoteBot()
+    let prompt = this._extractQuestion(atMe)
 
     let should = false
-    if (c.freeChatInSession && !this.e.isGroup) {
-      // 私聊会话：默认接话
-      should = true
-    } else if (atMe && c.replyOnAt) {
-      should = true
-    } else if (quoteMe && c.replyOnQuote) {
-      should = true
-    } else if (c.activeReplyOthers && this.e.isGroup) {
-      // 主动回复他人普通消息
-      if (!checkCooldown(this.e, c.activeReplyCooldownSec)) return false
-      should = true
-    } else if (c.freeChatInSession && this.e.isGroup && (atMe || quoteMe)) {
-      should = true
+    let atUser = false
+    const inGroup = !!(this.e.isGroup || this.e.group_id)
+
+    // 私聊：会话中直接接话（freeChatInSession）
+    if (!inGroup) {
+      if (c.freeChatInSession) should = true
+    } else {
+      // 群：【艾特询问回复】开关 replyOnAt
+      if (atMe && c.replyOnAt) {
+        if (!prompt) {
+          if (c.atReplyRequireQuestion !== false) {
+            await this.reply("请在@我的同时说明问题，例如：@机器人 今天天气怎么样", true)
+            return true
+          }
+          return false
+        }
+        should = true
+        atUser = c.atReplyAtUser !== false
+      } else if (quoteMe && c.replyOnQuote) {
+        if (!prompt) return false
+        should = true
+        atUser = !!c.activeReplyAtUser
+      } else if (c.activeReplyOthers) {
+        if (!prompt) return false
+        if (!checkCooldown(this.e, c.activeReplyCooldownSec)) return false
+        should = true
+        atUser = !!c.activeReplyAtUser
+      }
     }
 
-    if (!should) return false
+    if (!should || !prompt) return false
 
-    // 去掉 @ 文本里的机器人昵称残留
-    let prompt = text
-    if (atMe) {
-      prompt = prompt.replace(/@\S+\s*/g, "").trim() || text
-    }
     return this._doChat(prompt, {
       useHistory: true,
-      atUser: c.activeReplyAtUser && this.e.isGroup,
+      atUser: inGroup && atUser,
     })
+  }
+
+  /** 更稳的艾特检测（OneBot / NapCat） */
+  _isAtBot() {
+    try {
+      if (this.e.atBot || this.e.atme) return true
+      const self = String(this.e.self_id || this.e.bot?.uin || "")
+      if (this.e.at != null && String(this.e.at) === self) return true
+      // message 段
+      const segs = this.e.message
+      if (Array.isArray(segs)) {
+        for (const m of segs) {
+          if (m?.type === "at") {
+            const qq = String(m.qq ?? m.data?.qq ?? m.id ?? "")
+            if (qq && (qq === self || qq === "all")) {
+              if (qq === "all") continue // @全体不算问机器人
+              return true
+            }
+          }
+        }
+      }
+      // raw_message 兜底
+      const raw = String(this.e.raw_message || this.e.msg || "")
+      if (self && raw.includes(`[CQ:at,qq=${self}`)) return true
+    } catch {
+      /* ignore */
+    }
+    return false
   }
 
   _isQuoteBot() {
     try {
-      const src = this.e.source || this.e.reply_id
-      if (!src) return false
-      // 部分协议：source.user_id / source.qq
-      const uid = src.user_id || src.qq || src.from_id
-      if (uid && String(uid) === String(this.e.self_id)) return true
-      // 有 reply 段
-      if (this.e.message?.some?.(m => m.type === "reply")) {
-        // 无法可靠判断时：若配置了 replyOnQuote 且存在 reply，尝试当引用处理
-        // 更稳妥：仅当 source 指向 bot
-        return !!uid && String(uid) === String(this.e.self_id)
+      const self = String(this.e.self_id || "")
+      const src = this.e.source
+      if (src) {
+        const uid = src.user_id ?? src.qq ?? src.from_id
+        if (uid != null && String(uid) === self) return true
       }
     } catch {
       /* ignore */
     }
     return false
+  }
+
+  /** 去掉 @CQ 与 @昵称，得到真正问句 */
+  _extractQuestion(atMe) {
+    let text = String(this.e.msg || this.e.raw_message || "").trim()
+    // 去 CQ at
+    text = text.replace(/\[CQ:at,[^\]]+\]/g, " ")
+    // 去 @xxx
+    text = text.replace(/@\S+/g, " ")
+    text = text.replace(/\s+/g, " ").trim()
+    return text
   }
 
   async _doChat(prompt, { useHistory = true, atUser = false } = {}) {
@@ -189,7 +237,6 @@ export class GrokChat extends plugin {
 
     const c = Config.get()
     const hist = useHistory ? getHistory(this.e) : []
-    // 始终后台 system，不使用用户自定义 system
     const messages = buildChatMessages(this.e, prompt, hist)
 
     try {
