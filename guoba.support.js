@@ -66,6 +66,19 @@ export function supportGuoba() {
             ],
           },
         },
+        {
+          field: "passImages",
+          label: "对话传递图片",
+          component: "Switch",
+          bottomHelpMessage:
+            "开启后：用户发图（可带文字）会一并传给模型看图；关闭则忽略消息里的图片。需上游模型支持视觉",
+        },
+        {
+          field: "passImagesMax",
+          label: "单次最多传图数",
+          component: "InputNumber",
+          componentProps: { min: 1, max: 8 },
+        },
         { field: "imageModel", label: "图片模型", component: "Input" },
         { field: "videoModel", label: "视频模型", component: "Input" },
 
@@ -293,7 +306,7 @@ export function supportGuoba() {
           const boolKeys = [
             "enable", "masterOnly", "allowOneShotWithoutSession", "freeChatInSession",
             "replyOnAt", "atReplyRequireQuestion", "atReplyAtUser", "replyOnQuote",
-            "activeReplyOthers", "activeReplyAtUser",
+            "activeReplyOthers", "activeReplyAtUser", "passImages",
             "imageNsfwEnable", "videoNsfwEnable",
           ]
           for (const k of boolKeys) {

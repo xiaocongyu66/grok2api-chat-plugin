@@ -2,6 +2,7 @@ import Config from "../components/Config.js"
 import { checkAccess } from "../lib/access.js"
 import { chatCompletions } from "../lib/client.js"
 import { sendForward } from "../lib/forward.js"
+import { extractImageUrls } from "../lib/images.js"
 import { buildChatMessages } from "../lib/prompt.js"
 import {
   checkCooldown,
@@ -68,6 +69,7 @@ export class GrokChat extends plugin {
       "—— 其它 ——",
       "#模型列表  #连通测试(主人)",
       "",
+      `对话传图：${c.passImages ? "开" : "关"}（发图+文字可看图回答）`,
       `本会话：${isSessionActive(this.e) ? "进行中" : "未开始"} (${scopeKey(this.e)})`,
     ]
     return this.reply(lines.join("\n"))
@@ -107,14 +109,18 @@ export class GrokChat extends plugin {
 
   async chatCmd() {
     const prompt = stripCmd(this.e.msg, "对话", "聊天")
-    if (!prompt) return this.reply("用法：#对话 你好")
-
     const c = Config.get()
+    const imgs = c.passImages !== false ? extractImageUrls(this.e, c.passImagesMax || 4) : []
+    if (!prompt && !imgs.length) return this.reply("用法：#对话 你好（可带图）")
+
     const active = isSessionActive(this.e)
     if (!active && !c.allowOneShotWithoutSession) {
       return this.reply("请先让主人在本群发送 #开始对话")
     }
-    return this._doChat(prompt, { useHistory: active })
+    return this._doChat(prompt || "请描述或理解这些图片。", {
+      useHistory: active,
+      imageUrls: imgs,
+    })
   }
 
   /**
@@ -182,23 +188,28 @@ export class GrokChat extends plugin {
           atUser = !!c.activeReplyAtUser
         }
       } else {
-        // replyOnAt=false：关闭「仅艾特」→ 会话内有内容就回（你说的逻辑）
-        if (!prompt) return false
-        // 防刷：用冷却（0=不限制）
+        // replyOnAt=false：关闭「仅艾特」→ 会话内有内容（文字或图）就回
+        const earlyImgs =
+          c.passImages !== false ? extractImageUrls(this.e, c.passImagesMax || 4) : []
+        if (!prompt && !earlyImgs.length) return false
         if (c.activeReplyCooldownSec > 0 && !checkCooldown(this.e, c.activeReplyCooldownSec)) {
           return false
         }
         should = true
-        // @了我就回@；否则看 activeReplyAtUser
         atUser = atMe ? c.atReplyAtUser !== false : !!c.activeReplyAtUser
       }
     }
 
-    if (!should || !prompt) return false
+    const imgs = c.passImages !== false ? extractImageUrls(this.e, c.passImagesMax || 4) : []
+    // 允许「只发图不说话」在开启传图时触发
+    if (!should) return false
+    if (!prompt && !imgs.length) return false
+    if (!prompt && imgs.length) prompt = "请描述或理解这些图片。"
 
     return this._doChat(prompt, {
       useHistory: true,
       atUser: inGroup && atUser,
+      imageUrls: imgs,
     })
   }
 
@@ -255,18 +266,28 @@ export class GrokChat extends plugin {
     return text
   }
 
-  async _doChat(prompt, { useHistory = true, atUser = false } = {}) {
+  async _doChat(prompt, { useHistory = true, atUser = false, imageUrls = [] } = {}) {
     const a = checkAccess(this.e)
     if (!a.ok) return this.reply(a.msg)
-    if (!prompt) return false
 
     const c = Config.get()
+    const imgs =
+      c.passImages !== false && Array.isArray(imageUrls) && imageUrls.length
+        ? imageUrls.slice(0, c.passImagesMax || 4)
+        : []
+    if (!prompt && !imgs.length) return false
+
     const hist = useHistory ? getHistory(this.e) : []
-    const messages = buildChatMessages(this.e, prompt, hist)
+    const messages = buildChatMessages(this.e, prompt || "", hist, imgs)
 
     try {
       const { content } = await chatCompletions({ messages })
-      if (useHistory) pushTurn(this.e, prompt, content, c.maxHistory)
+      // 历史只记文本；有图时加标记
+      const histUser =
+        imgs.length > 0
+          ? `${prompt || ""}`.trim() + (prompt ? "\n" : "") + `[用户发送了${imgs.length}张图片]`
+          : prompt
+      if (useHistory) pushTurn(this.e, histUser, content, c.maxHistory)
 
       if (c.chatForwardThreshold > 0 && content.length >= c.chatForwardThreshold) {
         await sendForward(this.e, [content], "Grok 对话")

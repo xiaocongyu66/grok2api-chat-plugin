@@ -196,6 +196,9 @@ class Config {
         if (m === "responses" || m === "response") return "responses"
         return "auto"
       })(),
+      // 对话是否把用户消息里的图片传给模型（多模态）
+      passImages: c.passImages !== false,
+      passImagesMax: Math.min(8, Math.max(1, Number(c.passImagesMax) || 4)),
       imageModel: str(c.imageModel, "grok-imagine-image").trim(),
       videoModel: str(c.videoModel, "grok-imagine-video").trim(),
       timeoutMs: Number(c.timeoutMs) > 0 ? Number(c.timeoutMs) : 180000,

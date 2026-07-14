@@ -41,6 +41,8 @@ git clone https://github.com/xiaocongyu66/grok2api-chat-plugin.git
 | API 地址 / API Key | grok2api 根地址与 `g2a_...` |
 | 对话/图片/视频模型 | 可用 `auto` 自动选 `/v1/models` 中的对话模型 |
 | **对话接口 chatApiMode** | `auto` / `chat`（Completions）/ `responses`（Responses） |
+| **对话传递图片 passImages** | 开=用户发图一并给模型看图；关=忽略消息内图片 |
+| 单次最多传图数 | 默认 4 |
 | 系统提示词 | **始终注入**，用户无法覆盖 |
 
 #### 对话接口说明

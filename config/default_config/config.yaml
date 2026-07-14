@@ -9,6 +9,10 @@ apiKey: ""
 chatModel: "auto"
 # 对话接口：chat=/v1/chat/completions  responses=/v1/responses  auto=先 responses 再 chat
 chatApiMode: "auto"
+# 对话是否传递用户消息中的图片（多模态看图）
+passImages: true
+# 单次最多传几张图
+passImagesMax: 4
 imageModel: "grok-imagine-image"
 videoModel: "grok-imagine-video"
 
