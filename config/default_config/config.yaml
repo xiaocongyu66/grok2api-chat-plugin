@@ -56,19 +56,19 @@ allowOneShotWithoutSession: true
 freeChatInSession: true
 
 # ---------- 群内自动回复（需本群已 #开始对话）----------
-# 【艾特询问回复】@机器人并带问题才回复（推荐开）
-replyOnAt: true
-# 只@没说话时是否提示「请说明问题」
+# 仅艾特才回复：true=必须@才回；false=会话内有内容都回
+replyOnAt: false
+# 只@没说话时是否提示「请说明问题」（仅 replyOnAt=true 时）
 atReplyRequireQuestion: true
 # 艾特回复时是否 @ 对方
 atReplyAtUser: true
-# 引用 Bot 消息时接话
+# 引用 Bot 时接话（仅 replyOnAt=true 时作为补充）
 replyOnQuote: true
-# 不@也回复群内他人普通消息（刷屏风险，默认关）
+# 仅艾特模式下，额外允许不@也回（replyOnAt=true 时才有意义）
 activeReplyOthers: false
-# 主动回复冷却秒数（防刷）
-activeReplyCooldownSec: 8
-# 主动回复他人时是否 @ 对方
+# 自动回复冷却秒数（0=不限制）
+activeReplyCooldownSec: 3
+# 非艾特场景回消息时是否 @ 对方
 activeReplyAtUser: false
 
 # ---------- 权限 ----------

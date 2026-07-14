@@ -57,10 +57,10 @@ export class GrokChat extends plugin {
       "#清空对话  清空你在本群的上下文",
       "",
       "会话中自动回复（锅巴可开关）：",
-      `  · 艾特询问回复：${c.replyOnAt ? "开" : "关"}`,
+      `  · 仅艾特才回：${c.replyOnAt ? "开（必须@）" : "关（会话内都回）"}`,
       `  · 艾特须带问题：${c.atReplyRequireQuestion ? "开" : "关"}`,
       `  · 引用Bot消息：${c.replyOnQuote ? "开" : "关"}`,
-      `  · 不@也回别人：${c.activeReplyOthers ? "开" : "关"}`,
+      `  · 强制全员闲聊：${c.activeReplyOthers ? "开" : "关"}`,
       "",
       "—— 生图 / 生视频 ——",
       "#生图 描述   #生视频 描述",
@@ -118,7 +118,10 @@ export class GrokChat extends plugin {
   }
 
   /**
-   * 会话内：@询问优先；可选引用；可选主动回他人
+   * 会话内自动回复逻辑（按群隔离）：
+   * - replyOnAt=true  → 仅艾特（可选须带问题）才回
+   * - replyOnAt=false → 会话内有内容就回（关闭「仅艾特」= 都回）
+   * - replyOnQuote / activeReplyOthers 为补充开关
    */
   async freeOrActive() {
     if (isCommand(this.e.msg)) return false
@@ -137,35 +140,57 @@ export class GrokChat extends plugin {
     const atMe = this._isAtBot()
     const quoteMe = this._isQuoteBot()
     let prompt = this._extractQuestion(atMe)
+    // 非@场景用完整消息（去掉@残留后可能为空）
+    if (!prompt) {
+      prompt = String(this.e.msg || this.e.raw_message || "").trim()
+      prompt = prompt.replace(/\[CQ:at,[^\]]+\]/g, " ").replace(/@\S+/g, " ").replace(/\s+/g, " ").trim()
+    }
 
     let should = false
     let atUser = false
     const inGroup = !!(this.e.isGroup || this.e.group_id)
 
-    // 私聊：会话中直接接话（freeChatInSession）
+    // 私聊
     if (!inGroup) {
-      if (c.freeChatInSession) should = true
+      // freeChatInSession 关 = 私聊也要求有明确指令；开 = 会话内都回
+      if (c.freeChatInSession !== false) {
+        should = !!prompt
+      }
     } else {
-      // 群：【艾特询问回复】开关 replyOnAt
-      if (atMe && c.replyOnAt) {
-        if (!prompt) {
-          if (c.atReplyRequireQuestion !== false) {
-            await this.reply("请在@我的同时说明问题，例如：@机器人 今天天气怎么样", true)
-            return true
+      // ===== 群聊 =====
+      // replyOnAt=true：仅艾特模式
+      if (c.replyOnAt) {
+        if (atMe) {
+          if (!prompt) {
+            if (c.atReplyRequireQuestion !== false) {
+              await this.reply("请在@我的同时说明问题，例如：@机器人 今天天气怎么样", true)
+              return true
+            }
+            return false
           }
+          should = true
+          atUser = c.atReplyAtUser !== false
+        } else if (quoteMe && c.replyOnQuote) {
+          if (!prompt) return false
+          should = true
+          atUser = !!c.activeReplyAtUser
+        } else if (c.activeReplyOthers) {
+          // 仅艾特模式下，仍可额外打开「不@也回」
+          if (!prompt) return false
+          if (!checkCooldown(this.e, c.activeReplyCooldownSec)) return false
+          should = true
+          atUser = !!c.activeReplyAtUser
+        }
+      } else {
+        // replyOnAt=false：关闭「仅艾特」→ 会话内有内容就回（你说的逻辑）
+        if (!prompt) return false
+        // 防刷：用冷却（0=不限制）
+        if (c.activeReplyCooldownSec > 0 && !checkCooldown(this.e, c.activeReplyCooldownSec)) {
           return false
         }
         should = true
-        atUser = c.atReplyAtUser !== false
-      } else if (quoteMe && c.replyOnQuote) {
-        if (!prompt) return false
-        should = true
-        atUser = !!c.activeReplyAtUser
-      } else if (c.activeReplyOthers) {
-        if (!prompt) return false
-        if (!checkCooldown(this.e, c.activeReplyCooldownSec)) return false
-        should = true
-        atUser = !!c.activeReplyAtUser
+        // @了我就回@；否则看 activeReplyAtUser
+        atUser = atMe ? c.atReplyAtUser !== false : !!c.activeReplyAtUser
       }
     }
 

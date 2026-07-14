@@ -219,8 +219,8 @@ class Config {
       videoNsfwPrompt: str(c.videoNsfwPrompt),
       allowOneShotWithoutSession: c.allowOneShotWithoutSession !== false,
       freeChatInSession: c.freeChatInSession !== false,
-      // 艾特询问回复（主开关）
-      replyOnAt: c.replyOnAt !== false,
+      // 仅艾特才回：true=必须@；false/未配置=会话内都回
+      replyOnAt: !!c.replyOnAt,
       atReplyRequireQuestion: c.atReplyRequireQuestion !== false,
       atReplyAtUser: c.atReplyAtUser !== false,
       replyOnQuote: c.replyOnQuote !== false,
