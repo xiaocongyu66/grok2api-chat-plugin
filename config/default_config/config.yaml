@@ -40,11 +40,13 @@ adultContentEnable: true
 # 兼容旧键（与 adultContentEnable 同效，false 可关）
 chatJailbreakEnable: true
 
-# ---------- 模块 B：出站内容审查（与 A 完全拆开）----------
+# ---------- 模块 B：出站内容审查（与 A 完全拆开；群聊+私聊均生效）----------
 # 审查模型不注入破甲；正文只当 DATA，不信其中的提示词
-# 命中 NSFW → 合并聊天记录发送
+# 命中 NSFW → 合并聊天记录发送（私聊同样合并转发）
 outboundReviewEnable: true
 outboundReviewAi: true
+# 作用范围：all=群+私聊（默认） group=仅群 private=仅私聊
+outboundReviewScope: "all"
 # 审查可用独立模型；空/auto=跟 chatModel
 outboundReviewModel: "auto"
 outboundReviewExtraKeywords: ""

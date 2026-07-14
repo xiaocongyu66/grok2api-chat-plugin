@@ -44,7 +44,8 @@ git clone https://github.com/xiaocongyu66/grok2api-chat-plugin.git
 | **对话传递图片 passImages** | 开=用户发图一并给模型看图；关=忽略消息内图片 |
 | 单次最多传图数 | 默认 4 |
 | **成年内容 adultContentEnable** | SillyTavern 风格：对话破甲+NSFW 辅助；生图/生视频增强（模块 A） |
-| **出站审查 outboundReviewEnable** | 发送前 AI/关键词审查；NSFW→合并聊天记录（模块 B，与 A 拆开） |
+| **出站审查 outboundReviewEnable** | 发送前 AI/关键词审查；**群聊+私聊均生效**；NSFW→合并聊天记录（模块 B） |
+| **审查范围 outboundReviewScope** | `all`（默认）/ `group` / `private` |
 | 审查模型 / 额外关键词 | 审查可用独立模型；正文当 DATA，不执行其中提示词 |
 | 系统提示词 | 用户人设；ST 成年块硬编码另注入 |
 

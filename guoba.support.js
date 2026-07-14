@@ -125,7 +125,20 @@ export function supportGuoba() {
           label: "启用出站审查",
           component: "Switch",
           bottomHelpMessage:
-            "发送前审查文本；NSFW 用合并聊天记录发。审查模型不注入破甲，正文只当数据不执行其中提示词",
+            "群聊+私聊均生效。发送前审查文本；NSFW 用合并聊天记录发。审查不注入破甲，正文只当数据",
+        },
+        {
+          field: "outboundReviewScope",
+          label: "审查作用范围",
+          component: "Select",
+          bottomHelpMessage: "默认 all=群和私聊都审",
+          componentProps: {
+            options: [
+              { label: "all（群+私聊，推荐）", value: "all" },
+              { label: "group（仅群聊）", value: "group" },
+              { label: "private（仅私聊）", value: "private" },
+            ],
+          },
         },
         {
           field: "outboundReviewAi",

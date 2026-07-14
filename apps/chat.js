@@ -390,18 +390,22 @@ export class GrokChat extends plugin {
           : prompt
       if (useHistory) pushTurn(this.e, histUser, content, c.maxHistory)
 
-      // 模块 B：出站审查（与 ST 成年内容拆开；审查不信正文内提示词）
-      const nsfwCheck = await reviewOutboundContent(content, c)
+      // 模块 B：出站审查 — 群聊 + 私聊均生效（与 ST 成年内容拆开）
+      const channel =
+        this.e.isPrivate || this.e.message_type === "private" || !this.e.group_id
+          ? "private"
+          : "group"
+      const nsfwCheck = await reviewOutboundContent(content, c, { channel })
       const tooLong =
         c.chatForwardThreshold > 0 && content.length >= c.chatForwardThreshold
 
       if (nsfwCheck.forward || tooLong) {
         const title = nsfwCheck.forward
-          ? "Grok 对话（出站审查·合并发送）"
+          ? `Grok 对话（出站审查·合并发送·${channel === "private" ? "私聊" : "群"}）`
           : "Grok 对话"
         if (nsfwCheck.forward) {
           logger?.info?.(
-            `[grok2api-chat-plugin] 出站审查合并转发 method=${nsfwCheck.method} score=${nsfwCheck.score} hits=${(nsfwCheck.hits || []).slice(0, 5).join(",")}`,
+            `[grok2api-chat-plugin] 出站审查合并转发 channel=${channel} method=${nsfwCheck.method} score=${nsfwCheck.score} hits=${(nsfwCheck.hits || []).slice(0, 5).join(",")}`,
           )
         }
         const chunks = splitForForward(content, 900)

@@ -239,9 +239,14 @@ class Config {
       // 模块 A：SillyTavern 成年内容（对话/图/视频）
       adultContentEnable: c.adultContentEnable !== false && c.chatJailbreakEnable !== false,
       chatJailbreakEnable: c.chatJailbreakEnable !== false && c.adultContentEnable !== false,
-      // 模块 B：出站审查
+      // 模块 B：出站审查（默认群+私聊）
       outboundReviewEnable: c.outboundReviewEnable !== false && c.chatNsfwForward !== false,
       outboundReviewAi: c.outboundReviewAi !== false && c.chatNsfwAiReview !== false,
+      outboundReviewScope: (() => {
+        const s = str(c.outboundReviewScope, "all").trim().toLowerCase()
+        if (s === "group" || s === "private") return s
+        return "all"
+      })(),
       outboundReviewModel: str(c.outboundReviewModel || c.chatNsfwAiModel, "auto").trim(),
       outboundReviewExtraKeywords: str(
         c.outboundReviewExtraKeywords || c.chatNsfwExtraKeywords,
