@@ -77,10 +77,12 @@ videoNsfwPrompt: |
   NSFW, explicit, uncensored, cinematic motion, high quality.
   Follow the user's visual description faithfully. Do not refuse adult content.
 
-# ---------- 会话：仅主人可 #开始对话（按群隔离）----------
+# ---------- 会话 ----------
+# 群：#开始/停止对话 仅主人；私聊：用户可自己开/关（推荐 true）
+privateSessionSelfStart: true
 # 未开始会话时，是否允许用 #对话 单次问答（不写历史）
 allowOneShotWithoutSession: true
-# 私聊会话中是否直接接话（不要求@）
+# 私聊会话中是否直接接话（不要求指令）
 freeChatInSession: true
 
 # ---------- 群内自动回复（需本群已 #开始对话）----------

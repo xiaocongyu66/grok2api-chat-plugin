@@ -32,6 +32,14 @@ function isCommand(msg) {
   return /^[＃#]/.test(String(msg || "").trim())
 }
 
+/** 是否私聊（非群） */
+function isPrivateChat(e) {
+  if (e?.isPrivate || e?.message_type === "private") return true
+  if (e?.isGroup || e?.message_type === "group") return false
+  // 无 group_id 视为私聊
+  return e?.group_id == null || e?.group_id === ""
+}
+
 /** 折叠「整段回复粘两次」（QQ 发出前最后一道） */
 function collapseDupReply(text) {
   let s = String(text ?? "")
@@ -129,15 +137,16 @@ export class GrokChat extends plugin {
 
   help() {
     const c = Config.get()
+    const privOk = c.privateSessionSelfStart !== false
     const lines = [
       "【Grok2API 帮助】",
-      "—— 对话（按群隔离）——",
-      "#开始对话  仅主人；只开启【本群/本私聊】",
-      "#停止对话  仅主人；只关闭【本群/本私聊】，其它群不受影响",
+      "—— 对话 ——",
+      "#开始对话  群：仅主人；私聊：" + (privOk ? "你自己可开/关" : "仅主人"),
+      "#停止对话  群：仅主人；私聊：" + (privOk ? "你自己可开/关" : "仅主人"),
       "#对话 内容  会话中多轮；未开会话时" + (c.allowOneShotWithoutSession ? "可单次问答" : "需先开始"),
-      "#清空对话  清空你在本群的上下文",
+      "#清空对话  清空你在本会话的上下文",
       "",
-      "会话中自动回复（锅巴可开关）：",
+      "群内自动回复（锅巴可开关）：",
       `  · 仅艾特才回：${c.replyOnAt ? "开（必须@）" : "关（会话内都回）"}`,
       `  · 艾特须带问题：${c.atReplyRequireQuestion ? "开" : "关"}`,
       `  · 引用Bot消息：${c.replyOnQuote ? "开" : "关"}`,
@@ -155,32 +164,65 @@ export class GrokChat extends plugin {
     return this.reply(lines.join("\n"))
   }
 
+  /**
+   * 权限：
+   * - 群：仅主人可开/关
+   * - 私聊：默认用户自己可开/关（锅巴 privateSessionSelfStart）
+   */
+  _canControlSession() {
+    const c = Config.get()
+    if (this.e.isMaster) return { ok: true }
+    if (isPrivateChat(this.e) && c.privateSessionSelfStart !== false) {
+      return { ok: true }
+    }
+    if (isPrivateChat(this.e)) {
+      return { ok: false, msg: "私聊会话开关已关闭（仅主人可操作）" }
+    }
+    return { ok: false, msg: "群内仅主人可以 #开始对话 / #停止对话" }
+  }
+
   async start() {
-    if (!this.e.isMaster) return this.reply("仅主人可以 #开始对话")
+    const perm = this._canControlSession()
+    if (!perm.ok) return this.reply(perm.msg)
     const a = checkAccess(this.e)
     if (!a.ok) return this.reply(a.msg)
-    const scope = startSession(this.e)
-    const where = this.e.isGroup || this.e.group_id ? `本群 ${this.e.group_id}` : "本私聊"
+    startSession(this.e)
+    const priv = isPrivateChat(this.e)
+    const where = priv ? "本私聊" : `本群 ${this.e.group_id}`
     const c = Config.get()
-    const how = c.replyOnAt
-      ? "· 仅艾特模式：请 @我 并提问"
-      : "· 本群会话内直接说话即可（不必@）"
+    let how
+    if (priv) {
+      how =
+        c.freeChatInSession !== false
+          ? "· 直接发消息即可继续聊（不必指令）"
+          : "· 请用 #对话 内容 继续"
+    } else {
+      how = c.replyOnAt
+        ? "· 仅艾特模式：请 @我 并提问"
+        : "· 本群会话内直接说话即可（不必@）"
+    }
     return this.reply(
       `对话已开始（仅 ${where}）。\n` +
         `${how}\n` +
-        "· #停止对话 只关这里，其它群照常\n" +
+        (priv
+          ? "· #停止对话 结束本私聊会话\n"
+          : "· #停止对话 只关本群，其它群照常\n") +
         `· 传图：${c.passImages ? "开" : "关"} · 接口：${c.chatApiMode}`,
     )
   }
 
   async stop() {
-    if (!this.e.isMaster) return this.reply("仅主人可以 #停止对话")
+    const perm = this._canControlSession()
+    if (!perm.ok) return this.reply(perm.msg)
     const scope = stopSession(this.e)
-    const where = this.e.isGroup || this.e.group_id ? `本群 ${this.e.group_id}` : "本私聊"
+    const priv = isPrivateChat(this.e)
+    const where = priv ? "本私聊" : `本群 ${this.e.group_id}`
     const others = listActiveSessions().filter(s => s !== scope)
     return this.reply(
       `对话已结束（仅 ${where}）。\n` +
-        (others.length ? `其它仍开启：${others.length} 个会话` : "当前没有其它进行中的会话"),
+        (others.length
+          ? `其它仍开启：${others.length} 个会话`
+          : "当前没有其它进行中的会话"),
     )
   }
 
@@ -199,7 +241,14 @@ export class GrokChat extends plugin {
 
     const active = isSessionActive(this.e)
     if (!active && !c.allowOneShotWithoutSession) {
-      return this.reply("请先让主人在本群发送 #开始对话")
+      if (isPrivateChat(this.e) && c.privateSessionSelfStart !== false) {
+        return this.reply("请先发送 #开始对话（私聊可由你自己开启）")
+      }
+      return this.reply(
+        isPrivateChat(this.e)
+          ? "请先 #开始对话（或联系主人开启）"
+          : "请先让主人在本群发送 #开始对话",
+      )
     }
     return this._doChat(prompt || "请描述或理解这些图片。", {
       useHistory: active,

@@ -16,7 +16,7 @@ export function supportGuoba() {
       link: "https://github.com/chenyme/grok2api",
       isV3: true,
       isV2: false,
-      description: "对话/生图/生视频；/开始对话仅主人；后台提示词优先；合并转发媒体",
+      description: "对话/生图/生视频；群开始对话仅主人、私聊用户自开；后台提示词优先；合并转发媒体",
       icon: "mdi:robot-happy-outline",
       iconColor: "#1DA1F2",
     },
@@ -160,6 +160,13 @@ export function supportGuoba() {
         },
 
         { component: "SOFT_GROUP_BEGIN", label: "会话与回复开关" },
+        {
+          field: "privateSessionSelfStart",
+          label: "私聊用户可自己开/关对话",
+          component: "Switch",
+          bottomHelpMessage:
+            "开=私聊任何人可 #开始对话/#停止对话（只影响自己的私聊）；关=私聊也仅主人。群内始终仅主人",
+        },
         {
           field: "allowOneShotWithoutSession",
           label: "未开会话允许#对话单次",
@@ -314,8 +321,10 @@ export function supportGuoba() {
         { component: "SOFT_GROUP_BEGIN", label: "权限" },
         {
           field: "masterOnly",
-          label: "功能仅主人（不含开始对话，开始对话本身已仅主人）",
+          label: "其它功能仅主人",
           component: "Switch",
+          bottomHelpMessage:
+            "生图/生视频等；群内开始对话始终仅主人；私聊开始对话见「私聊用户可自己开/关」",
         },
         {
           field: "groupBlacklist",

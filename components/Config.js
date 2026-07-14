@@ -221,6 +221,8 @@ class Config {
       videoPromptSuffix: str(c.videoPromptSuffix),
       videoNsfwEnable: c.videoNsfwEnable !== false,
       videoNsfwPrompt: str(c.videoNsfwPrompt),
+      // 私聊：用户自己 #开始对话 / #停止对话（默认开）；群仍仅主人
+      privateSessionSelfStart: c.privateSessionSelfStart !== false,
       allowOneShotWithoutSession: c.allowOneShotWithoutSession !== false,
       freeChatInSession: c.freeChatInSession !== false,
       // 仅艾特才回：true=必须@；false/未配置=会话内都回
