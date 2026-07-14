@@ -368,10 +368,14 @@ export function supportGuoba() {
           }
           // 锅巴 Switch 可能传字符串，统一成布尔
           const boolKeys = [
-            "enable", "masterOnly", "allowOneShotWithoutSession", "freeChatInSession",
+            "enable", "masterOnly", "privateSessionSelfStart",
+            "allowOneShotWithoutSession", "freeChatInSession",
             "replyOnAt", "atReplyRequireQuestion", "atReplyAtUser", "replyOnQuote",
             "activeReplyOthers", "activeReplyAtUser", "passImages",
             "imageNsfwEnable", "videoNsfwEnable",
+            "adultContentEnable", "chatJailbreakEnable",
+            "outboundReviewEnable", "outboundReviewAi",
+            "chatNsfwForward", "chatNsfwAiReview",
           ]
           for (const k of boolKeys) {
             if (k in clean) {
