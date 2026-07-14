@@ -188,7 +188,14 @@ class Config {
       enable: c.enable !== false,
       apiBase: str(c.apiBase).replace(/\/+$/, ""),
       apiKey: str(c.apiKey).trim(),
-      chatModel: str(c.chatModel, "grok-chat-auto").trim(),
+      chatModel: str(c.chatModel, "auto").trim(),
+      // chat | responses | auto（auto=先 responses 失败再 chat）
+      chatApiMode: (() => {
+        const m = str(c.chatApiMode, "auto").trim().toLowerCase()
+        if (m === "chat" || m === "completions" || m === "chat_completions") return "chat"
+        if (m === "responses" || m === "response") return "responses"
+        return "auto"
+      })(),
       imageModel: str(c.imageModel, "grok-imagine-image").trim(),
       videoModel: str(c.videoModel, "grok-imagine-video").trim(),
       timeoutMs: Number(c.timeoutMs) > 0 ? Number(c.timeoutMs) : 180000,

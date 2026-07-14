@@ -43,7 +43,8 @@ export class GrokTools extends plugin {
     const lines = [
       `apiBase: ${c.apiBase || "(空)"}`,
       `apiKey: ${c.apiKey ? c.apiKey.slice(0, 8) + "…" : "(空)"}`,
-      `chatModel 配置: ${c.chatModel}`,
+      `chatModel: ${c.chatModel}`,
+      `chatApiMode: ${c.chatApiMode}`,
       `image: ${c.imageModel} nsfw=${c.imageNsfwEnable}`,
       `video: ${c.videoModel} nsfw=${c.videoNsfwEnable}`,
       `session: ${isSessionActive(this.e) ? "on" : "off"}`,

@@ -46,7 +46,26 @@ export function supportGuoba() {
         },
 
         { component: "SOFT_GROUP_BEGIN", label: "模型" },
-        { field: "chatModel", label: "对话模型", component: "Input" },
+        {
+          field: "chatModel",
+          label: "对话模型",
+          component: "Input",
+          bottomHelpMessage: "填 #模型列表 里的 id；auto=自动选第一个对话模型",
+        },
+        {
+          field: "chatApiMode",
+          label: "对话接口",
+          component: "Select",
+          bottomHelpMessage:
+            "chat=Chat Completions；responses=Responses API；auto=优先 Responses，失败回退 Chat",
+          componentProps: {
+            options: [
+              { label: "auto（推荐：Responses→Chat）", value: "auto" },
+              { label: "chat（/v1/chat/completions）", value: "chat" },
+              { label: "responses（/v1/responses）", value: "responses" },
+            ],
+          },
+        },
         { field: "imageModel", label: "图片模型", component: "Input" },
         { field: "videoModel", label: "视频模型", component: "Input" },
 

@@ -40,7 +40,16 @@ git clone https://github.com/xiaocongyu66/grok2api-chat-plugin.git
 | 启用插件 | 总开关 |
 | API 地址 / API Key | grok2api 根地址与 `g2a_...` |
 | 对话/图片/视频模型 | 可用 `auto` 自动选 `/v1/models` 中的对话模型 |
+| **对话接口 chatApiMode** | `auto` / `chat`（Completions）/ `responses`（Responses） |
 | 系统提示词 | **始终注入**，用户无法覆盖 |
+
+#### 对话接口说明
+
+| 模式 | 行为 |
+|------|------|
+| **auto**（默认） | 先 `POST /v1/responses`，失败再 `POST /v1/chat/completions` |
+| **chat** | 只用 Chat Completions |
+| **responses** | 只用 Responses API |
 
 ### 会话与回复开关
 
@@ -87,7 +96,7 @@ plugins/grok2api-chat-plugin/config/config/config.yaml
 
 | 功能 | 接口 |
 |------|------|
-| 对话 | `POST /v1/chat/completions` |
+| 对话 | `POST /v1/chat/completions` 与/或 `POST /v1/responses`（锅巴可选） |
 | 图片 | `POST /v1/images/generations` |
 | 视频 | `POST /v1/videos/generations` + `GET /v1/videos/{id}` |
 
