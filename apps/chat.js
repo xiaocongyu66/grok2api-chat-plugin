@@ -19,6 +19,9 @@ import {
 /** 指令前缀：# */
 const CMD = "^[＃#]"
 
+/** 进行中请求锁，防止同消息/同用户并发双发导致重复回复 */
+const inflight = new Set()
+
 function stripCmd(msg, ...names) {
   const re = new RegExp(`${CMD}(?:${names.join("|")})\\s*`, "i")
   return String(msg || "").replace(re, "").trim()
@@ -26,6 +29,13 @@ function stripCmd(msg, ...names) {
 
 function isCommand(msg) {
   return /^[＃#]/.test(String(msg || "").trim())
+}
+
+function inflightKey(e) {
+  const msgId = e?.message_id ?? e?.seq ?? e?.rand ?? ""
+  const uid = e?.user_id ?? ""
+  const gid = e?.group_id ?? "private"
+  return `${gid}:${uid}:${msgId || String(e?.msg || "").slice(0, 80)}`
 }
 
 export class GrokChat extends plugin {
@@ -81,11 +91,15 @@ export class GrokChat extends plugin {
     if (!a.ok) return this.reply(a.msg)
     const scope = startSession(this.e)
     const where = this.e.isGroup || this.e.group_id ? `本群 ${this.e.group_id}` : "本私聊"
+    const c = Config.get()
+    const how = c.replyOnAt
+      ? "· 仅艾特模式：请 @我 并提问"
+      : "· 本群会话内直接说话即可（不必@）"
     return this.reply(
       `对话已开始（仅 ${where}）。\n` +
-        "· @我并提问 即可回复\n" +
+        `${how}\n` +
         "· #停止对话 只关这里，其它群照常\n" +
-        `· scope=${scope}`,
+        `· 传图：${c.passImages ? "开" : "关"} · 接口：${c.chatApiMode}`,
     )
   }
 
@@ -270,18 +284,32 @@ export class GrokChat extends plugin {
     const a = checkAccess(this.e)
     if (!a.ok) return this.reply(a.msg)
 
+    const lock = inflightKey(this.e)
+    if (inflight.has(lock)) {
+      logger?.debug?.(`[grok2api-chat-plugin] skip duplicate inflight: ${lock}`)
+      return true
+    }
+    inflight.add(lock)
+
     const c = Config.get()
     const imgs =
       c.passImages !== false && Array.isArray(imageUrls) && imageUrls.length
         ? imageUrls.slice(0, c.passImagesMax || 4)
         : []
-    if (!prompt && !imgs.length) return false
+    if (!prompt && !imgs.length) {
+      inflight.delete(lock)
+      return false
+    }
 
     const hist = useHistory ? getHistory(this.e) : []
     const messages = buildChatMessages(this.e, prompt || "", hist, imgs)
 
     try {
-      const { content } = await chatCompletions({ messages })
+      // 严格走 OpenAI Chat Completions（由 chatApiMode 控制，默认 chat）
+      const { content, api, model } = await chatCompletions({ messages })
+      logger?.info?.(
+        `[grok2api-chat-plugin] chat ok api=${api} model=${model} len=${String(content).length}`,
+      )
       // 历史只记文本；有图时加标记
       const histUser =
         imgs.length > 0
@@ -297,6 +325,8 @@ export class GrokChat extends plugin {
     } catch (err) {
       logger.error(`[grok2api-chat-plugin] chat: ${err.stack || err}`)
       return this.reply(`对话失败：${err.message}`)
+    } finally {
+      inflight.delete(lock)
     }
     return true
   }

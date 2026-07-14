@@ -40,7 +40,7 @@ git clone https://github.com/xiaocongyu66/grok2api-chat-plugin.git
 | 启用插件 | 总开关 |
 | API 地址 / API Key | grok2api 根地址与 `g2a_...` |
 | 对话/图片/视频模型 | 可用 `auto` 自动选 `/v1/models` 中的对话模型 |
-| **对话接口 chatApiMode** | `auto` / `chat`（Completions）/ `responses`（Responses） |
+| **对话接口 chatApiMode** | 默认 **`chat`**（严格 OpenAI）/ `auto` / `responses` |
 | **对话传递图片 passImages** | 开=用户发图一并给模型看图；关=忽略消息内图片 |
 | 单次最多传图数 | 默认 4 |
 | 系统提示词 | **始终注入**，用户无法覆盖 |
@@ -49,9 +49,9 @@ git clone https://github.com/xiaocongyu66/grok2api-chat-plugin.git
 
 | 模式 | 行为 |
 |------|------|
-| **auto**（默认） | 先 `POST /v1/responses`，失败再 `POST /v1/chat/completions` |
-| **chat** | 只用 Chat Completions |
-| **responses** | 只用 Responses API |
+| **chat**（默认，推荐） | 严格 OpenAI：`POST /v1/chat/completions`，解析 `choices[0].message.content` |
+| **auto** | 先 Chat Completions，失败再 Responses |
+| **responses** | 只用 `POST /v1/responses`（非严格 OpenAI chat） |
 
 ### 会话与回复开关
 
@@ -98,7 +98,7 @@ plugins/grok2api-chat-plugin/config/config/config.yaml
 
 | 功能 | 接口 |
 |------|------|
-| 对话 | `POST /v1/chat/completions` 与/或 `POST /v1/responses`（锅巴可选） |
+| 对话 | 默认严格 `POST /v1/chat/completions`；可选 Responses |
 | 图片 | `POST /v1/images/generations` |
 | 视频 | `POST /v1/videos/generations` + `GET /v1/videos/{id}` |
 

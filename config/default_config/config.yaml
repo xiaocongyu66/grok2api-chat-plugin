@@ -7,8 +7,9 @@ apiKey: ""
 
 # 对话模型：填 /v1/models 里真实 id；auto=自动选列表第一个对话模型
 chatModel: "auto"
-# 对话接口：chat=/v1/chat/completions  responses=/v1/responses  auto=先 responses 再 chat
-chatApiMode: "auto"
+# 对话接口（严格 OpenAI 默认 chat）：
+# chat=/v1/chat/completions  responses=/v1/responses  auto=先 chat 再 responses
+chatApiMode: "chat"
 # 对话是否传递用户消息中的图片（多模态看图）
 passImages: true
 # 单次最多传几张图

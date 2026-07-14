@@ -57,11 +57,11 @@ export function supportGuoba() {
           label: "对话接口",
           component: "Select",
           bottomHelpMessage:
-            "chat=Chat Completions；responses=Responses API；auto=优先 Responses，失败回退 Chat",
+            "默认 chat=严格 OpenAI /v1/chat/completions；responses=Responses API；auto=先 Chat 失败再 Responses",
           componentProps: {
             options: [
-              { label: "auto（推荐：Responses→Chat）", value: "auto" },
-              { label: "chat（/v1/chat/completions）", value: "chat" },
+              { label: "chat（严格 OpenAI /v1/chat/completions，推荐）", value: "chat" },
+              { label: "auto（Chat→Responses）", value: "auto" },
               { label: "responses（/v1/responses）", value: "responses" },
             ],
           },

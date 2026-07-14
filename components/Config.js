@@ -189,12 +189,13 @@ class Config {
       apiBase: str(c.apiBase).replace(/\/+$/, ""),
       apiKey: str(c.apiKey).trim(),
       chatModel: str(c.chatModel, "auto").trim(),
-      // chat | responses | auto（auto=先 responses 失败再 chat）
+      // chat（默认，严格 OpenAI）| responses | auto（auto=先 chat 失败再 responses）
       chatApiMode: (() => {
-        const m = str(c.chatApiMode, "auto").trim().toLowerCase()
-        if (m === "chat" || m === "completions" || m === "chat_completions") return "chat"
+        const m = str(c.chatApiMode, "chat").trim().toLowerCase()
         if (m === "responses" || m === "response") return "responses"
-        return "auto"
+        if (m === "auto") return "auto"
+        // chat | completions | chat_completions | 其它一律 chat
+        return "chat"
       })(),
       // 对话是否把用户消息里的图片传给模型（多模态）
       passImages: c.passImages !== false,
