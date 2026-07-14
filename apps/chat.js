@@ -31,11 +31,37 @@ function isCommand(msg) {
   return /^[＃#]/.test(String(msg || "").trim())
 }
 
+/** 折叠「整段回复粘两次」（QQ 发出前最后一道） */
+function collapseDupReply(text) {
+  let s = String(text ?? "")
+  if (s.length < 16) return s
+  for (let i = 0; i < 3; i++) {
+    const m = s.match(/^([\s\S]+?)(?:\s*)\1\s*$/)
+    if (m && m[1].trim().length >= 8) {
+      s = m[1]
+      continue
+    }
+    const paras = s.split(/\n{2,}/)
+    if (paras.length >= 2 && paras.length % 2 === 0) {
+      const mid = paras.length / 2
+      const a = paras.slice(0, mid).join("\n\n")
+      const b = paras.slice(mid).join("\n\n")
+      if (a.trim() && a.trim() === b.trim()) {
+        s = a
+        continue
+      }
+    }
+    break
+  }
+  return s
+}
+
 function inflightKey(e) {
   const msgId = e?.message_id ?? e?.seq ?? e?.rand ?? ""
-  const uid = e?.user_id ?? ""
+  const uid = e?.user_id ?? e?.sender?.user_id ?? ""
   const gid = e?.group_id ?? "private"
-  return `${gid}:${uid}:${msgId || String(e?.msg || "").slice(0, 80)}`
+  const text = String(e?.msg || e?.raw_message || "").slice(0, 80)
+  return `${gid}:${uid}:${msgId || `${text}:${Math.floor(Date.now() / 2000)}`}`
 }
 
 export class GrokChat extends plugin {
@@ -306,9 +332,12 @@ export class GrokChat extends plugin {
 
     try {
       // 严格走 OpenAI Chat Completions（由 chatApiMode 控制，默认 chat）
-      const { content, api, model } = await chatCompletions({ messages })
+      const { content: rawContent, api, model } = await chatCompletions({ messages })
+      // 二次保险：若上游/解析仍把整段拼了两遍，发 QQ 前再折叠
+      let content = String(rawContent || "")
+      content = collapseDupReply(content)
       logger?.info?.(
-        `[grok2api-chat-plugin] chat ok api=${api} model=${model} len=${String(content).length}`,
+        `[grok2api-chat-plugin] chat ok api=${api} model=${model} len=${content.length}`,
       )
       // 历史只记文本；有图时加标记
       const histUser =
