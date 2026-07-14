@@ -2,3 +2,7 @@ config/config/
 node_modules/
 *.log
 .DS_Store
+
+# runtime session store
+data/
+

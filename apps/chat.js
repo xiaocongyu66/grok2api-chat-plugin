@@ -128,7 +128,8 @@ export class GrokChat extends plugin {
         { reg: `${CMD}帮助$`, fnc: "help" },
         { reg: `${CMD}开始对话$`, fnc: "start" },
         { reg: `${CMD}(停止对话|结束对话|关闭对话)$`, fnc: "stop" },
-        { reg: `${CMD}(清空对话|清空记忆|重置对话)$`, fnc: "clear" },
+        // 仅显式清理指令才清记忆；停止对话不清
+        { reg: `${CMD}(清理会话|清空对话|清空记忆|重置对话)$`, fnc: "clear" },
         { reg: `${CMD}(对话|聊天)\\s*.+`, fnc: "chatCmd" },
         // 会话中：艾特询问 / 引用 / 可选主动回他人
         { reg: "^[\\s\\S]+", fnc: "freeOrActive", log: false },
@@ -148,7 +149,7 @@ export class GrokChat extends plugin {
       "#停止对话  群：仅主人；私聊：" +
         (privOn ? (privSelf ? "你自己可开/关" : "仅主人可关") : "已关闭"),
       "#对话 内容  会话中多轮；未开会话时" + (c.allowOneShotWithoutSession ? "可单次问答" : "需先开始"),
-      "#清空对话  清空你在本会话的上下文",
+      "#清理会话  仅此指令清空上下文（停止对话不清记忆，重启也保留）",
       "",
       "群内自动回复（锅巴可开关）：",
       `  · 仅艾特才回：${c.replyOnAt ? "开（必须@）" : "关（会话内都回）"}`,
@@ -209,13 +210,15 @@ export class GrokChat extends plugin {
         ? "· 仅艾特模式：请 @我 并提问"
         : "· 本群会话内直接说话即可（不必@）"
     }
+    const histN = getHistory(this.e).length
     return this.reply(
       `对话已开始（仅 ${where}）。\n` +
         `${how}\n` +
         (priv
-          ? "· #停止对话 结束本私聊会话\n"
-          : "· #停止对话 只关本群，其它群照常\n") +
-        `· 传图：${c.passImages ? "开" : "关"} · 接口：${c.chatApiMode}`,
+          ? "· #停止对话 结束本私聊（记忆保留）\n"
+          : "· #停止对话 只关本群（记忆保留）\n") +
+        "· #清理会话 才会清空上下文\n" +
+        `· 已保留历史 ${histN} 条 · 传图：${c.passImages ? "开" : "关"} · 接口：${c.chatApiMode}`,
     )
   }
 
@@ -225,9 +228,12 @@ export class GrokChat extends plugin {
     const scope = stopSession(this.e)
     const priv = isPrivateChat(this.e)
     const where = priv ? "本私聊" : `本群 ${this.e.group_id}`
+    const histN = getHistory(this.e).length
     const others = listActiveSessions().filter(s => s !== scope)
     return this.reply(
       `对话已结束（仅 ${where}）。\n` +
+        `记忆已保留（${histN} 条），再次 #开始对话 可续聊。\n` +
+        "要清空请发：#清理会话\n" +
         (others.length
           ? `其它仍开启：${others.length} 个会话`
           : "当前没有其它进行中的会话"),
@@ -238,7 +244,7 @@ export class GrokChat extends plugin {
     const a = checkAccess(this.e)
     if (!a.ok) return this.reply(a.msg)
     clearHistory(this.e)
-    return this.reply("已清空你在本会话的对话记忆")
+    return this.reply("已清理本会话上下文（仅本次 #清理会话 生效；停止/重启不会清）")
   }
 
   async chatCmd() {

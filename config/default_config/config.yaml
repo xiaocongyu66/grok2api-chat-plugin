@@ -34,7 +34,12 @@ imageN: 1
 imageSize: ""
 imageAspectRatio: ""
 
-maxHistory: 20
+# 近期完整上下文条数（超出后压缩旧轮，不整段丢弃；仅 #清理会话 清空）
+maxHistory: 24
+# 压缩摘要最大字符
+contextCompressMaxChars: 1500
+# 会话持久化目录：plugins/grok2api-chat-plugin/data/sessions.json
+sessionPersist: true
 chatForwardThreshold: 800
 forwardNickname: "Grok"
 

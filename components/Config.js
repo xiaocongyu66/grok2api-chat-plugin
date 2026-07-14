@@ -216,7 +216,12 @@ class Config {
       imageN: Math.min(10, Math.max(1, Number(c.imageN) || 1)),
       imageSize: str(c.imageSize).trim(),
       imageAspectRatio: str(c.imageAspectRatio).trim(),
-      maxHistory: Math.min(100, Math.max(2, Number(c.maxHistory) || 20)),
+      maxHistory: Math.min(200, Math.max(4, Number(c.maxHistory) || 24)),
+      contextCompressMaxChars: Math.min(
+        8000,
+        Math.max(400, Number(c.contextCompressMaxChars) || 1500),
+      ),
+      sessionPersist: c.sessionPersist !== false,
       chatSystemPrompt,
       imagePromptPrefix: str(c.imagePromptPrefix),
       imagePromptSuffix: str(c.imagePromptSuffix),

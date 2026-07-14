@@ -115,9 +115,23 @@ export function supportGuoba() {
         },
         {
           field: "maxHistory",
-          label: "上下文条数",
+          label: "近期完整上下文条数",
           component: "InputNumber",
-          componentProps: { min: 2, max: 100 },
+          bottomHelpMessage:
+            "超出后自动压缩更早轮次为摘要；停止对话/重启不清记忆，仅 #清理会话 清空",
+          componentProps: { min: 4, max: 200 },
+        },
+        {
+          field: "contextCompressMaxChars",
+          label: "压缩摘要最大字数",
+          component: "InputNumber",
+          componentProps: { min: 400, max: 8000, step: 100 },
+        },
+        {
+          field: "sessionPersist",
+          label: "会话磁盘持久化",
+          component: "Switch",
+          bottomHelpMessage: "开=写入 data/sessions.json，机器人重启后可续聊",
         },
         {
           field: "chatForwardThreshold",
