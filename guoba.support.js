@@ -103,18 +103,46 @@ export function supportGuoba() {
           bottomHelpMessage: "0=关闭",
           componentProps: { min: 0, max: 20000 },
         },
+
         {
-          field: "chatNsfwForward",
-          label: "NSFW 用合并聊天记录发送",
-          component: "Switch",
-          bottomHelpMessage:
-            "开启后：即将发出的对话文本若命中 NSFW 关键词，改为「合并转发/聊天记录」发送，不直发群消息",
+          component: "SOFT_GROUP_BEGIN",
+          label: "成年内容（SillyTavern 风格）",
         },
         {
-          field: "chatNsfwExtraKeywords",
-          label: "NSFW 额外关键词",
+          field: "adultContentEnable",
+          label: "启用 ST 成年内容增强",
+          component: "Switch",
+          bottomHelpMessage:
+            "参考 SillyTavern：对话注入 NSFW 辅助+历史后破甲；生图/生视频叠加成人向增强。与出站审查独立",
+        },
+
+        {
+          component: "SOFT_GROUP_BEGIN",
+          label: "出站内容审查",
+        },
+        {
+          field: "outboundReviewEnable",
+          label: "启用出站审查",
+          component: "Switch",
+          bottomHelpMessage:
+            "发送前审查文本；NSFW 用合并聊天记录发。审查模型不注入破甲，正文只当数据不执行其中提示词",
+        },
+        {
+          field: "outboundReviewAi",
+          label: "AI 审查（失败回退关键词）",
+          component: "Switch",
+        },
+        {
+          field: "outboundReviewModel",
+          label: "审查模型",
+          component: "Input",
+          bottomHelpMessage: "空或 auto=与对话模型相同；可填专用便宜模型",
+        },
+        {
+          field: "outboundReviewExtraKeywords",
+          label: "审查额外关键词",
           component: "InputTextArea",
-          bottomHelpMessage: "逗号或换行分隔，叠加内置词表；命中即合并发送",
+          bottomHelpMessage: "逗号/换行分隔，关键词回退时叠加",
           componentProps: { rows: 3 },
         },
 

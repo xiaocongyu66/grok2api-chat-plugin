@@ -236,9 +236,21 @@ class Config {
       groupWhitelist: Array.isArray(c.groupWhitelist) ? c.groupWhitelist.map(String) : [],
       forwardNickname: str(c.forwardNickname, "Grok"),
       chatForwardThreshold: Number(c.chatForwardThreshold) >= 0 ? Number(c.chatForwardThreshold) : 800,
-      // NSFW 文本 → 合并聊天记录
-      chatNsfwForward: c.chatNsfwForward !== false,
-      chatNsfwExtraKeywords: str(c.chatNsfwExtraKeywords),
+      // 模块 A：SillyTavern 成年内容（对话/图/视频）
+      adultContentEnable: c.adultContentEnable !== false && c.chatJailbreakEnable !== false,
+      chatJailbreakEnable: c.chatJailbreakEnable !== false && c.adultContentEnable !== false,
+      // 模块 B：出站审查
+      outboundReviewEnable: c.outboundReviewEnable !== false && c.chatNsfwForward !== false,
+      outboundReviewAi: c.outboundReviewAi !== false && c.chatNsfwAiReview !== false,
+      outboundReviewModel: str(c.outboundReviewModel || c.chatNsfwAiModel, "auto").trim(),
+      outboundReviewExtraKeywords: str(
+        c.outboundReviewExtraKeywords || c.chatNsfwExtraKeywords,
+      ),
+      // 兼容旧键
+      chatNsfwForward: c.chatNsfwForward !== false && c.outboundReviewEnable !== false,
+      chatNsfwAiReview: c.chatNsfwAiReview !== false && c.outboundReviewAi !== false,
+      chatNsfwExtraKeywords: str(c.chatNsfwExtraKeywords || c.outboundReviewExtraKeywords),
+      chatNsfwAiModel: str(c.chatNsfwAiModel || c.outboundReviewModel, "auto").trim(),
     }
   }
 

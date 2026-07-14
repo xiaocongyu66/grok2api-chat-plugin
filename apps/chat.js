@@ -3,7 +3,7 @@ import { checkAccess } from "../lib/access.js"
 import { chatCompletions } from "../lib/client.js"
 import { sendForward } from "../lib/forward.js"
 import { extractImageUrls } from "../lib/images.js"
-import { shouldForwardNsfw } from "../lib/nsfw.js"
+import { reviewOutboundContent } from "../lib/outbound-review.js"
 import { buildChatMessages } from "../lib/prompt.js"
 import {
   checkCooldown,
@@ -390,21 +390,20 @@ export class GrokChat extends plugin {
           : prompt
       if (useHistory) pushTurn(this.e, histUser, content, c.maxHistory)
 
-      // 发送前审查：NSFW → 合并聊天记录；过长 → 合并转发
-      const nsfwCheck = shouldForwardNsfw(content, c)
+      // 模块 B：出站审查（与 ST 成年内容拆开；审查不信正文内提示词）
+      const nsfwCheck = await reviewOutboundContent(content, c)
       const tooLong =
         c.chatForwardThreshold > 0 && content.length >= c.chatForwardThreshold
 
       if (nsfwCheck.forward || tooLong) {
         const title = nsfwCheck.forward
-          ? "Grok 对话（内容审查·合并发送）"
+          ? "Grok 对话（出站审查·合并发送）"
           : "Grok 对话"
         if (nsfwCheck.forward) {
           logger?.info?.(
-            `[grok2api-chat-plugin] NSFW 合并转发 score=${nsfwCheck.score} hits=${(nsfwCheck.hits || []).slice(0, 5).join(",")}`,
+            `[grok2api-chat-plugin] 出站审查合并转发 method=${nsfwCheck.method} score=${nsfwCheck.score} hits=${(nsfwCheck.hits || []).slice(0, 5).join(",")}`,
           )
         }
-        // 长文拆成多段节点，阅读更友好
         const chunks = splitForForward(content, 900)
         await sendForward(this.e, chunks, title)
       } else {
