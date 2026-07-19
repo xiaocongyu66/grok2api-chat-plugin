@@ -1,6 +1,12 @@
 import Config from "../components/Config.js"
 import { checkAccess } from "../lib/access.js"
-import { listModels } from "../lib/client.js"
+import {
+  listModels,
+  healthCheck,
+  chatCompletions,
+  normalizeApiBase,
+  probeV1Capabilities,
+} from "../lib/client.js"
 import { sendForward } from "../lib/forward.js"
 import { isSessionActive } from "../lib/session.js"
 
@@ -40,25 +46,55 @@ export class GrokTools extends plugin {
   async ping() {
     if (!this.e.isMaster) return this.reply("仅主人可测试")
     const c = Config.get()
+    const base = normalizeApiBase(c.apiBase)
     const lines = [
-      `apiBase: ${c.apiBase || "(空)"}`,
+      `apiBase: ${base || "(空)"}`,
       `apiKey: ${c.apiKey ? c.apiKey.slice(0, 8) + "…" : "(空)"}`,
-      `chatModel: ${c.chatModel}`,
-      `chatApiMode: ${c.chatApiMode}`,
-      `image: ${c.imageModel} nsfw=${c.imageNsfwEnable}`,
-      `video: ${c.videoModel} nsfw=${c.videoNsfwEnable}`,
+      `auth: ${c.authHeaderMode}  retries=${c.requestRetries}  tlsInsecure=${!!c.tlsInsecure}`,
+      `chatModel: ${c.chatModel}  mode=${c.chatApiMode}`,
+      `image: ${c.imageModel}  edit: ${c.imageEditModel}`,
+      `video: ${c.videoModel}`,
       `session: ${isSessionActive(this.e) ? "on" : "off"}`,
-      `activeReplyOthers: ${c.activeReplyOthers}`,
-      `replyOnAt: ${c.replyOnAt} replyOnQuote: ${c.replyOnQuote}`,
     ]
+
     try {
-      const data = await listModels()
-      const ids = (data?.data || []).map(m => m.id).filter(Boolean)
-      lines.push(`GET /v1/models → OK (${ids.length}): ${ids.join(", ") || "(空)"}`)
-      if (!ids.length) lines.push("⚠ 列表为空：请在 grok2api 导入账号并启用模型")
+      const h = await healthCheck()
+      if (h.healthz?.ok) lines.push(`GET /healthz → OK`)
+      else if (h.healthz?.error) lines.push(`GET /healthz → ${String(h.healthz.error).slice(0, 100)}`)
+      if (h.readyz?.ok) lines.push(`GET /readyz → OK`)
+      else if (h.readyz?.error) lines.push(`GET /readyz → ${String(h.readyz.error).slice(0, 100)}`)
     } catch (err) {
-      lines.push(`GET /v1/models → FAIL: ${err.message}`)
+      lines.push(`health: ${err.message}`)
     }
+
+    try {
+      const cap = await probeV1Capabilities()
+      for (const [name, st] of Object.entries(cap.endpoints || {})) {
+        if (st.ok) lines.push(`${name} → OK${st.note ? ` (${st.note})` : ""}`)
+        else lines.push(`${name} → FAIL: ${st.error || "?"}`)
+      }
+    } catch (err) {
+      lines.push(`probe v1: ${err.message}`)
+    }
+
+    // real chat completions sample (not just route probe)
+    try {
+      const r = await chatCompletions({
+        messages: [{ role: "user", content: "ping" }],
+        skipJailbreak: true,
+        skipAdult: true,
+        allowEmptyContent: true,
+      })
+      const preview = String(r.content || "")
+        .replace(/\s+/g, " ")
+        .slice(0, 60)
+      lines.push(
+        `chat sample → OK api=${r.api} model=${r.model} ${preview || "(empty)"}`,
+      )
+    } catch (err) {
+      lines.push(`chat sample → FAIL: ${err.message}`)
+    }
+
     return this.reply(lines.join("\n"))
   }
 }

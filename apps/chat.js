@@ -14,10 +14,12 @@ import {
   checkCooldown,
   clearHistory,
   getHistory,
+  getLastResponseId,
   isSessionActive,
   listActiveSessions,
   pushTurn,
   scopeKey,
+  setLastResponseId,
   startSession,
   stopSession,
 } from "../lib/session.js"
@@ -496,10 +498,20 @@ export class GrokChat extends plugin {
           logger?.warn?.(
             `[grok2api-chat-plugin] tools 失败，回退纯对话: ${toolErr.message}`,
           )
-          const r = await chatCompletions({ messages: msgsForModel })
+          const r = await chatCompletions({
+            messages: msgsForModel,
+            previousResponseId:
+              c.responsesSticky !== false &&
+              (c.chatApiMode === "responses" || c.chatApiMode === "auto")
+                ? getLastResponseId(this.e) || undefined
+                : undefined,
+          })
           content = collapseDupReply(String(r.content || ""))
           api = r.api
           model = r.model
+          if (r.responseId && c.responsesSticky !== false) {
+            setLastResponseId(this.e, r.responseId)
+          }
         }
       } else {
         if (c.chatToolsEnable !== false) {
@@ -507,10 +519,20 @@ export class GrokChat extends plugin {
             `[grok2api-chat-plugin] skip media tools (no explicit gen intent): ${String(prompt || "").slice(0, 40)}`,
           )
         }
-        const r = await chatCompletions({ messages: msgsForModel })
+        const r = await chatCompletions({
+          messages: msgsForModel,
+          previousResponseId:
+            c.responsesSticky !== false &&
+            (c.chatApiMode === "responses" || c.chatApiMode === "auto")
+              ? getLastResponseId(this.e) || undefined
+              : undefined,
+        })
         content = collapseDupReply(String(r.content || ""))
         api = r.api
         model = r.model
+        if (r.responseId && c.responsesSticky !== false) {
+          setLastResponseId(this.e, r.responseId)
+        }
       }
 
       logger?.info?.(

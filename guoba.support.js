@@ -1,42 +1,239 @@
+/**
+ * 锅巴 Guoba-Plugin 配置对接
+ * 规范：https://github.com/guoba-yunzai/guoba-plugin
+ * 发现：plugins/<本插件目录>/guoba.support.js → export function supportGuoba()
+ * 必备：configInfo.schemas + getConfigData + setConfigData
+ */
 import path from "node:path"
 import Config from "./components/Config.js"
 import { Plugin_Path, Plugin_Name } from "./components/path.js"
 
+const BOOL_KEYS = [
+  "enable",
+  "autoUpdateCheck",
+  "autoUpdatePull",
+  "masterOnly",
+  "tlsInsecure",
+  "responsesSticky",
+  "sessionPersist",
+  "privateChatEnable",
+  "privateSessionSelfStart",
+  "allowOneShotWithoutSession",
+  "freeChatInSession",
+  "replyOnAt",
+  "atReplyRequireQuestion",
+  "atReplyAtUser",
+  "replyOnQuote",
+  "activeReplyOthers",
+  "activeReplyAtUser",
+  "passImages",
+  "chatToolsEnable",
+  "chatToolImage",
+  "chatToolVideo",
+  "imageNsfwEnable",
+  "videoNsfwEnable",
+  "adultContentEnable",
+  "chatJailbreakEnable",
+  "outboundReviewEnable",
+  "outboundReviewAi",
+  "chatNsfwForward",
+  "chatNsfwAiReview",
+]
+
+const NUM_KEYS = [
+  "timeoutMs",
+  "requestRetries",
+  "autoUpdateBootDelaySec",
+  "passImagesMax",
+  "chatToolMaxRounds",
+  "maxHistory",
+  "contextCompressMaxChars",
+  "chatForwardThreshold",
+  "activeReplyCooldownSec",
+  "imageN",
+  "videoDuration",
+  "videoPollIntervalSec",
+  "videoPollMaxSec",
+]
+
+/** 锅巴可能传 "true"/"false"/1/0 */
+function toBool(v) {
+  if (typeof v === "boolean") return v
+  if (typeof v === "number") return v !== 0
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase()
+    if (s === "true" || s === "1" || s === "yes" || s === "on") return true
+    if (s === "false" || s === "0" || s === "no" || s === "off" || s === "") return false
+  }
+  return !!v
+}
+
+function toNum(v) {
+  if (v === "" || v == null) return v
+  const n = Number(v)
+  return Number.isFinite(n) ? n : v
+}
+
 /**
- * 锅巴：https://gitee.com/Guoba-Yunzai/Guoba-Plugin
- * 提示词全部以后台为准，用户无法从前台覆盖 system / NSFW 策略
+ * 锅巴 req.body 可能是：
+ * 1) 扁平 { field: value }
+ * 2) 点路径 { "a.b": value }（少数表单）
  */
+function flattenBody(data) {
+  if (!data || typeof data !== "object") return {}
+  const out = {}
+  for (const [k, v] of Object.entries(data)) {
+    if (k.includes(".")) {
+      // 只取最后一级作为本插件扁平字段（我们 schemas 全是顶层 field）
+      const leaf = k.split(".").pop()
+      out[leaf] = v
+    } else {
+      out[k] = v
+    }
+  }
+  return out
+}
+
 export function supportGuoba() {
   return {
     pluginInfo: {
+      // 须与 plugins 目录名一致（锅巴以目录名 toLowerCase 注册）
       name: Plugin_Name,
-      title: "Grok2API",
-      author: "@grok-free-register",
-      authorLink: "https://github.com/chenyme/grok2api",
-      link: "https://github.com/chenyme/grok2api",
+      title: "Grok2API Chat",
+      author: ["@xiaocongyu66", "@grok-free-register"],
+      authorLink: [
+        "https://github.com/xiaocongyu66",
+        "https://github.com/xiaocongyu66/grok2api-chat-plugin",
+      ],
+      link: "https://github.com/xiaocongyu66/grok2api-chat-plugin",
       isV3: true,
       isV2: false,
-      description: "对话/生图/生视频；群开始对话仅主人、私聊用户自开；后台提示词优先；合并转发媒体",
+      // auto：schemas≥3 时显示在左侧菜单
+      showInMenu: "auto",
+      description:
+        "OpenAI 兼容全量 /v1（chat·responses·images·edits·videos）；支持 grok2api-sing / NewAPI 等",
       icon: "mdi:robot-happy-outline",
       iconColor: "#1DA1F2",
     },
     configInfo: {
       schemas: [
-        { component: "SOFT_GROUP_BEGIN", label: "连接" },
-        { field: "enable", label: "启用插件", component: "Switch" },
+        // ---------- 自动更新 ----------
+        { label: "自动更新（官方仓库）", component: "SOFT_GROUP_BEGIN" },
+        {
+          field: "autoUpdateCheck",
+          label: "自动检查更新",
+          component: "Switch",
+          bottomHelpMessage:
+            "启动后与定时任务检查 https://github.com/xiaocongyu66/grok2api-chat-plugin ；指令 #Grok检查更新 / #Grok更新",
+        },
+        {
+          field: "autoUpdatePull",
+          label: "发现更新后自动拉取",
+          component: "Switch",
+          bottomHelpMessage:
+            "关=仅通知主人（推荐）；开=自动 git pull（仍建议重启 Bot）",
+        },
+        {
+          field: "autoUpdateCron",
+          label: "检查更新定时",
+          component: "Input",
+          bottomHelpMessage: "Yunzai quartz，默认 0 30 4 * * ?（每天 4:30）",
+          componentProps: { placeholder: "0 30 4 * * ?" },
+        },
+        {
+          field: "autoUpdateBootDelaySec",
+          label: "启动延迟检查(秒)",
+          component: "InputNumber",
+          componentProps: { min: 5, max: 600 },
+        },
+        {
+          field: "updateRepo",
+          label: "更新仓库地址",
+          component: "Input",
+          bottomHelpMessage: "默认官方仓库，一般无需改",
+        },
+        {
+          field: "updateBranch",
+          label: "更新分支",
+          component: "Input",
+          bottomHelpMessage: "默认 main",
+        },
+
+        // ---------- 连接 ----------
+        { label: "连接（OpenAI 兼容）", component: "SOFT_GROUP_BEGIN" },
+        {
+          field: "enable",
+          label: "启用插件",
+          component: "Switch",
+          bottomHelpMessage: "总开关；关闭后指令不响应",
+        },
         {
           field: "apiBase",
           label: "API 地址",
           component: "Input",
           required: true,
-          bottomHelpMessage: "无末尾 / ，如 https://xxx.hf.space",
+          bottomHelpMessage:
+            "服务根地址，不要带 /v1。例：https://api.openai.com 或 http://127.0.0.1:8000（grok2api-sing）",
+          componentProps: {
+            placeholder: "http://127.0.0.1:8000",
+          },
         },
         {
           field: "apiKey",
           label: "API Key",
           component: "InputPassword",
           required: true,
-          bottomHelpMessage: "g2a_... 保存时勿清空",
+          bottomHelpMessage:
+            "OpenAI sk-... / 网关 g2a_... / 其它兼容 Key。保存时留空则保留原 Key",
+          componentProps: {
+            placeholder: "sk-... 或 g2a_...",
+          },
+        },
+        {
+          field: "authHeaderMode",
+          label: "鉴权头模式",
+          component: "Select",
+          bottomHelpMessage:
+            "both=Bearer+X-API-Key（兼容 grok2api-sing）；bearer=纯 OpenAI 标准",
+          componentProps: {
+            options: [
+              { label: "both（Bearer + X-API-Key，推荐）", value: "both" },
+              { label: "bearer（仅 Authorization）", value: "bearer" },
+              { label: "x-api-key（仅 X-API-Key）", value: "x-api-key" },
+            ],
+          },
+        },
+        {
+          field: "apiOrganization",
+          label: "OpenAI-Organization",
+          component: "Input",
+          bottomHelpMessage: "可选；官方 OpenAI 组织 ID",
+        },
+        {
+          field: "apiProject",
+          label: "OpenAI-Project",
+          component: "Input",
+          bottomHelpMessage: "可选；官方 OpenAI 项目 ID",
+        },
+        {
+          field: "extraHeaders",
+          label: "额外请求头",
+          component: "InputTextArea",
+          bottomHelpMessage: "每行 Header-Name: value；一般留空",
+          componentProps: { rows: 2, placeholder: "X-Custom: value" },
+        },
+        {
+          field: "tlsInsecure",
+          label: "跳过 TLS 校验",
+          component: "Switch",
+          bottomHelpMessage: "仅自签/内网 HTTPS；公网正规证书请关闭",
+        },
+        {
+          field: "requestRetries",
+          label: "网络重试次数",
+          component: "InputNumber",
+          bottomHelpMessage: "瞬时网络错误额外重试（不含首次），默认 2",
+          componentProps: { min: 0, max: 5 },
         },
         {
           field: "timeoutMs",
@@ -45,33 +242,74 @@ export function supportGuoba() {
           componentProps: { min: 10000, max: 600000, step: 1000 },
         },
 
-        { component: "SOFT_GROUP_BEGIN", label: "模型" },
+        // ---------- 模型 / 对话接口 ----------
+        { label: "模型与对话接口", component: "SOFT_GROUP_BEGIN" },
         {
           field: "chatModel",
           label: "对话模型",
           component: "Input",
           bottomHelpMessage: "填 #模型列表 里的 id；auto=自动选第一个对话模型",
+          componentProps: { placeholder: "auto 或 grok-chat-auto / gpt-4o" },
         },
         {
           field: "chatApiMode",
           label: "对话接口",
           component: "Select",
           bottomHelpMessage:
-            "默认 chat=严格 OpenAI /v1/chat/completions；responses=Responses API；auto=先 Chat 失败再 Responses",
+            "chat=严格 OpenAI /v1/chat/completions（推荐）；responses=/v1/responses；auto=先 chat，协议失败再 responses",
           componentProps: {
             options: [
-              { label: "chat（严格 OpenAI /v1/chat/completions，推荐）", value: "chat" },
-              { label: "auto（Chat→Responses）", value: "auto" },
+              { label: "chat（/v1/chat/completions，推荐）", value: "chat" },
+              { label: "auto（Chat → Responses）", value: "auto" },
               { label: "responses（/v1/responses）", value: "responses" },
             ],
           },
         },
         {
+          field: "responsesSticky",
+          label: "Responses 粘滞 ID",
+          component: "Switch",
+          bottomHelpMessage:
+            "chatApiMode 为 responses/auto 时自动传 previous_response_id",
+        },
+        {
+          field: "temperature",
+          label: "temperature",
+          component: "Input",
+          bottomHelpMessage: "OpenAI 采样温度；空=不传该字段",
+          componentProps: { placeholder: "留空不传" },
+        },
+        {
+          field: "maxTokens",
+          label: "max_tokens",
+          component: "Input",
+          bottomHelpMessage: "OpenAI max_tokens；空=不传",
+          componentProps: { placeholder: "留空不传" },
+        },
+        {
+          field: "topP",
+          label: "top_p",
+          component: "Input",
+          bottomHelpMessage: "OpenAI top_p；空=不传",
+          componentProps: { placeholder: "留空不传" },
+        },
+        {
+          field: "presencePenalty",
+          label: "presence_penalty",
+          component: "Input",
+          bottomHelpMessage: "空=不传",
+        },
+        {
+          field: "frequencyPenalty",
+          label: "frequency_penalty",
+          component: "Input",
+          bottomHelpMessage: "空=不传",
+        },
+        {
           field: "passImages",
           label: "对话传递图片",
           component: "Switch",
-          bottomHelpMessage:
-            "开启后：用户发图（可带文字）会一并传给模型看图；关闭则忽略消息里的图片。需上游模型支持视觉",
+          bottomHelpMessage: "开=用户发图一并给模型看图（需上游支持视觉）",
         },
         {
           field: "passImagesMax",
@@ -84,7 +322,7 @@ export function supportGuoba() {
           label: "对话内工具调用",
           component: "Switch",
           bottomHelpMessage:
-            "开=仅当用户明确说「画/生成图/做视频」时才挂工具；说「描述」只用文字。结果合并转发。详见 docs/TOOLS.md",
+            "开=仅当用户明确要画/生成图视频时挂 tools；「描述」只用文字",
         },
         {
           field: "chatToolImage",
@@ -100,27 +338,126 @@ export function supportGuoba() {
           field: "chatToolMaxRounds",
           label: "工具最大往返轮数",
           component: "InputNumber",
-          bottomHelpMessage:
-            "后台自定义 1–10，默认 3。每轮仍最多 1 次工具；数值越大允许越多轮 tool→再回复",
+          bottomHelpMessage: "1–10，默认 3",
           componentProps: { min: 1, max: 10 },
         },
-        { field: "imageModel", label: "图片模型", component: "Input" },
-        { field: "videoModel", label: "视频模型", component: "Input" },
 
-        { component: "SOFT_GROUP_BEGIN", label: "对话提示词（强制后台）" },
+        // ---------- 图片 / 视频模型 ----------
+        { label: "图片 / 视频模型", component: "SOFT_GROUP_BEGIN" },
+        {
+          field: "imageModel",
+          label: "图片模型",
+          component: "Input",
+          bottomHelpMessage: "POST /v1/images/generations",
+          componentProps: { placeholder: "grok-imagine-image" },
+        },
+        {
+          field: "imageEditModel",
+          label: "图编辑模型",
+          component: "Input",
+          bottomHelpMessage: "POST /v1/images/edits；#改图",
+          componentProps: { placeholder: "grok-imagine-image-edit" },
+        },
+        {
+          field: "imageN",
+          label: "一次张数",
+          component: "InputNumber",
+          componentProps: { min: 1, max: 10 },
+        },
+        {
+          field: "imageSize",
+          label: "图片 size",
+          component: "Input",
+          bottomHelpMessage: "OpenAI 兼容，如 1024x1024；空=不传",
+        },
+        {
+          field: "imageAspectRatio",
+          label: "图片宽高比",
+          component: "Select",
+          bottomHelpMessage: "xAI/grok2api；空=不传",
+          componentProps: {
+            allowClear: true,
+            options: ["", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"].map(
+              v => ({ label: v || "（不传）", value: v }),
+            ),
+          },
+        },
+        {
+          field: "imageResolution",
+          label: "图片分辨率",
+          component: "Input",
+          bottomHelpMessage: "如 1k / 2k；空=不传",
+        },
+        {
+          field: "imageResponseFormat",
+          label: "图片返回格式",
+          component: "Select",
+          componentProps: {
+            options: [
+              { label: "url", value: "url" },
+              { label: "b64_json", value: "b64_json" },
+            ],
+          },
+        },
+        {
+          field: "videoModel",
+          label: "视频模型",
+          component: "Input",
+          bottomHelpMessage: "POST /v1/videos/generations",
+          componentProps: { placeholder: "grok-imagine-video" },
+        },
+        {
+          field: "videoDuration",
+          label: "视频时长(秒)",
+          component: "InputNumber",
+          componentProps: { min: 1, max: 15 },
+        },
+        {
+          field: "videoAspectRatio",
+          label: "视频宽高比",
+          component: "Select",
+          componentProps: {
+            options: ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"].map(v => ({
+              label: v,
+              value: v,
+            })),
+          },
+        },
+        {
+          field: "videoResolution",
+          label: "视频分辨率",
+          component: "Select",
+          componentProps: {
+            options: ["480p", "720p", "1080p"].map(v => ({ label: v, value: v })),
+          },
+        },
+        {
+          field: "videoPollIntervalSec",
+          label: "视频轮询间隔(秒)",
+          component: "InputNumber",
+          componentProps: { min: 2, max: 60 },
+        },
+        {
+          field: "videoPollMaxSec",
+          label: "视频最长等待(秒)",
+          component: "InputNumber",
+          componentProps: { min: 30, max: 3600 },
+        },
+
+        // ---------- 提示词 ----------
+        { label: "对话提示词（强制后台）", component: "SOFT_GROUP_BEGIN" },
         {
           field: "chatSystemPrompt",
           label: "系统提示词",
           component: "InputTextArea",
-          bottomHelpMessage: "始终注入；用户无法用前台指令覆盖或改身份",
+          bottomHelpMessage: "始终注入；用户无法用前台指令覆盖身份",
           componentProps: { rows: 6 },
         },
         {
           field: "maxHistory",
           label: "近期完整上下文条数",
           component: "InputNumber",
-          bottomHelpMessage:
-            "超出后自动压缩更早轮次为摘要；停止对话/重启不清记忆，仅 #清理会话 清空",
+          bottomHelpMessage: "超出后压缩旧轮；仅 #清理会话 清空",
           componentProps: { min: 4, max: 200 },
         },
         {
@@ -133,7 +470,7 @@ export function supportGuoba() {
           field: "sessionPersist",
           label: "会话磁盘持久化",
           component: "Switch",
-          bottomHelpMessage: "开=写入 data/sessions.json，机器人重启后可续聊",
+          bottomHelpMessage: "开=写入 data/sessions.json，重启可续聊",
         },
         {
           field: "chatForwardThreshold",
@@ -142,38 +479,37 @@ export function supportGuoba() {
           bottomHelpMessage: "0=关闭",
           componentProps: { min: 0, max: 20000 },
         },
-
         {
-          component: "SOFT_GROUP_BEGIN",
-          label: "成年内容（SillyTavern 风格）",
+          field: "forwardNickname",
+          label: "合并转发昵称",
+          component: "Input",
         },
+
+        // ---------- 成年内容 ----------
+        { label: "成年内容（SillyTavern 风格）", component: "SOFT_GROUP_BEGIN" },
         {
           field: "adultContentEnable",
           label: "启用 ST 成年内容增强",
           component: "Switch",
           bottomHelpMessage:
-            "参考 SillyTavern：对话注入 NSFW 辅助+历史后破甲；生图/生视频叠加成人向增强。与出站审查独立",
+            "对话注入 NSFW 辅助+破甲；生图/生视频叠加成人向增强。与出站审查独立",
         },
 
-        {
-          component: "SOFT_GROUP_BEGIN",
-          label: "出站内容审查",
-        },
+        // ---------- 出站审查 ----------
+        { label: "出站内容审查", component: "SOFT_GROUP_BEGIN" },
         {
           field: "outboundReviewEnable",
           label: "启用出站审查",
           component: "Switch",
-          bottomHelpMessage:
-            "群聊+私聊均生效。发送前审查文本；NSFW 用合并聊天记录发。审查不注入破甲，正文只当数据",
+          bottomHelpMessage: "发送前审查；NSFW 用合并转发发送",
         },
         {
           field: "outboundReviewScope",
           label: "审查作用范围",
           component: "Select",
-          bottomHelpMessage: "默认 all=群和私聊都审",
           componentProps: {
             options: [
-              { label: "all（群+私聊，推荐）", value: "all" },
+              { label: "all（群+私聊）", value: "all" },
               { label: "group（仅群聊）", value: "group" },
               { label: "private（仅私聊）", value: "private" },
             ],
@@ -188,30 +524,29 @@ export function supportGuoba() {
           field: "outboundReviewModel",
           label: "审查模型",
           component: "Input",
-          bottomHelpMessage: "空或 auto=与对话模型相同；可填专用便宜模型",
+          bottomHelpMessage: "空或 auto=与对话模型相同",
         },
         {
           field: "outboundReviewExtraKeywords",
           label: "审查额外关键词",
           component: "InputTextArea",
-          bottomHelpMessage: "逗号/换行分隔，关键词回退时叠加",
+          bottomHelpMessage: "逗号/换行分隔",
           componentProps: { rows: 3 },
         },
 
-        { component: "SOFT_GROUP_BEGIN", label: "会话与私聊开关" },
+        // ---------- 会话 / 私聊 ----------
+        { label: "会话与私聊开关", component: "SOFT_GROUP_BEGIN" },
         {
           field: "privateChatEnable",
           label: "是否支持私聊",
           component: "Switch",
-          bottomHelpMessage:
-            "总开关。关=私聊不响应对话/生图/生视频；开=允许私聊使用插件（群不受影响）",
+          bottomHelpMessage: "关=私聊不响应对话/生图/生视频",
         },
         {
           field: "privateSessionSelfStart",
           label: "私聊用户可自己开/关对话",
           component: "Switch",
-          bottomHelpMessage:
-            "需先开启「是否支持私聊」。开=用户自己 #开始对话/#停止对话；关=私聊也仅主人可开/关。群内始终仅主人",
+          bottomHelpMessage: "需先开「支持私聊」；群内始终仅主人",
         },
         {
           field: "allowOneShotWithoutSession",
@@ -222,21 +557,18 @@ export function supportGuoba() {
           field: "freeChatInSession",
           label: "私聊会话中直接接话",
           component: "Switch",
-          bottomHelpMessage:
-            "需先开启「是否支持私聊」。开=私聊会话内直接说话就回；关=需 #对话",
         },
         {
           field: "replyOnAt",
           label: "仅艾特才回复",
           component: "Switch",
           bottomHelpMessage:
-            "【重要】开=群里必须@才回；关=本群已#开始对话后，有内容的消息都会回（不限制@）",
+            "开=群里必须@才回；关=本群已#开始对话后有内容都回",
         },
         {
           field: "atReplyRequireQuestion",
           label: "艾特须带问题",
           component: "Switch",
-          bottomHelpMessage: "仅在「仅艾特才回复」开启时生效：只@没说话会提示",
         },
         {
           field: "atReplyAtUser",
@@ -247,19 +579,17 @@ export function supportGuoba() {
           field: "replyOnQuote",
           label: "引用Bot时回复",
           component: "Switch",
-          bottomHelpMessage: "仅在「仅艾特才回复」开启时：引用机器人消息也可接话",
         },
         {
           field: "activeReplyOthers",
           label: "仅艾特模式下也回闲聊",
           component: "Switch",
-          bottomHelpMessage: "仅当「仅艾特才回复」=开 时：额外允许不@也回（易刷屏）",
+          bottomHelpMessage: "仅 replyOnAt=开 时生效；易刷屏",
         },
         {
           field: "activeReplyCooldownSec",
           label: "自动回复冷却(秒)",
           component: "InputNumber",
-          bottomHelpMessage: "会话内自动回的冷却，0=不限制；防刷建议 3～8",
           componentProps: { min: 0, max: 300 },
         },
         {
@@ -268,12 +598,12 @@ export function supportGuoba() {
           component: "Switch",
         },
 
-        { component: "SOFT_GROUP_BEGIN", label: "生图（NSFW）" },
+        // ---------- 生图 NSFW ----------
+        { label: "生图提示（NSFW）", component: "SOFT_GROUP_BEGIN" },
         {
           field: "imageNsfwEnable",
           label: "启用 NSFW 增强提示",
           component: "Switch",
-          bottomHelpMessage: "开启后 /生图 自动叠加下方 NSFW 提示词",
         },
         {
           field: "imageNsfwPrompt",
@@ -285,7 +615,6 @@ export function supportGuoba() {
           field: "imagePromptPrefix",
           label: "生图前缀",
           component: "InputTextArea",
-          bottomHelpMessage: "固定加在用户描述前",
           componentProps: { rows: 2 },
         },
         {
@@ -294,16 +623,9 @@ export function supportGuoba() {
           component: "InputTextArea",
           componentProps: { rows: 2 },
         },
-        {
-          field: "imageN",
-          label: "一次张数",
-          component: "InputNumber",
-          componentProps: { min: 1, max: 10 },
-        },
-        { field: "imageSize", label: "size", component: "Input" },
-        { field: "imageAspectRatio", label: "宽高比", component: "Input" },
 
-        { component: "SOFT_GROUP_BEGIN", label: "生视频（NSFW）" },
+        // ---------- 生视频 NSFW ----------
+        { label: "生视频提示（NSFW）", component: "SOFT_GROUP_BEGIN" },
         {
           field: "videoNsfwEnable",
           label: "启用 NSFW 增强提示",
@@ -327,51 +649,15 @@ export function supportGuoba() {
           component: "InputTextArea",
           componentProps: { rows: 2 },
         },
-        {
-          field: "videoDuration",
-          label: "时长(秒)",
-          component: "InputNumber",
-          componentProps: { min: 1, max: 15 },
-        },
-        {
-          field: "videoAspectRatio",
-          label: "宽高比",
-          component: "Select",
-          componentProps: {
-            options: ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"].map(v => ({
-              label: v,
-              value: v,
-            })),
-          },
-        },
-        {
-          field: "videoResolution",
-          label: "分辨率",
-          component: "Select",
-          componentProps: {
-            options: ["480p", "720p", "1080p"].map(v => ({ label: v, value: v })),
-          },
-        },
-        {
-          field: "videoPollIntervalSec",
-          label: "轮询间隔(秒)",
-          component: "InputNumber",
-          componentProps: { min: 2, max: 60 },
-        },
-        {
-          field: "videoPollMaxSec",
-          label: "最长等待(秒)",
-          component: "InputNumber",
-          componentProps: { min: 30, max: 3600 },
-        },
 
-        { component: "SOFT_GROUP_BEGIN", label: "权限" },
+        // ---------- 权限 ----------
+        { label: "权限", component: "SOFT_GROUP_BEGIN" },
         {
           field: "masterOnly",
           label: "其它功能仅主人",
           component: "Switch",
           bottomHelpMessage:
-            "生图/生视频等；群内开始对话始终仅主人；私聊开始对话见「私聊用户可自己开/关」",
+            "生图/生视频等；群内开始对话始终仅主人；私聊见「私聊用户可自己开/关」",
         },
         {
           field: "groupBlacklist",
@@ -388,7 +674,7 @@ export function supportGuoba() {
           field: "groupWhitelist",
           label: "群白名单",
           component: "GTags",
-          bottomHelpMessage: "非空则仅白名单",
+          bottomHelpMessage: "非空则仅白名单群可用",
           componentProps: {
             allowAdd: true,
             allowDel: true,
@@ -396,45 +682,69 @@ export function supportGuoba() {
             promptProps: { content: "群号", placeholder: "123456" },
           },
         },
-        { field: "forwardNickname", label: "合并转发昵称", component: "Input" },
       ],
 
+      // 前端填充
       getConfigData() {
-        return Config.get()
+        return Config.getForGuoba()
       },
 
+      // 前端点保存
       setConfigData(data, { Result }) {
         try {
-          const clean = { ...data }
+          const clean = flattenBody(data)
+
+          // apiKey 留空 → 保留原值（锅巴 InputPassword 重载时常为空）
           if (clean.apiKey === "" || clean.apiKey == null) {
-            delete clean.apiKey
             clean.apiKey = Config.get().apiKey
           }
+
           if (typeof clean.apiBase === "string") {
-            clean.apiBase = clean.apiBase.replace(/\/+$/, "")
+            clean.apiBase = clean.apiBase
+              .trim()
+              .replace(/\/+$/, "")
+              .replace(/\/v1$/i, "")
+              .replace(/\/+$/, "")
           }
-          // 锅巴 Switch 可能传字符串，统一成布尔
-          const boolKeys = [
-            "enable", "masterOnly",
-            "privateChatEnable", "privateSessionSelfStart",
-            "allowOneShotWithoutSession", "freeChatInSession",
-            "replyOnAt", "atReplyRequireQuestion", "atReplyAtUser", "replyOnQuote",
-            "activeReplyOthers", "activeReplyAtUser", "passImages",
-            "chatToolsEnable", "chatToolImage", "chatToolVideo",
-            "imageNsfwEnable", "videoNsfwEnable",
-            "adultContentEnable", "chatJailbreakEnable",
-            "outboundReviewEnable", "outboundReviewAi",
-            "chatNsfwForward", "chatNsfwAiReview",
-          ]
-          for (const k of boolKeys) {
-            if (k in clean) {
-              const v = clean[k]
-              if (typeof v === "string") clean[k] = v === "true" || v === "1"
-              else clean[k] = !!v
+
+          for (const k of BOOL_KEYS) {
+            if (k in clean) clean[k] = toBool(clean[k])
+          }
+          for (const k of NUM_KEYS) {
+            if (k in clean) clean[k] = toNum(clean[k])
+          }
+
+          // 可选采样：空串写回空，运行时不传上游
+          for (const k of [
+            "temperature",
+            "maxTokens",
+            "topP",
+            "presencePenalty",
+            "frequencyPenalty",
+          ]) {
+            if (k in clean && (clean[k] === "" || clean[k] == null)) {
+              clean[k] = ""
             }
           }
+
+          // 数组字段
+          for (const k of ["groupBlacklist", "groupWhitelist"]) {
+            if (k in clean) {
+              if (!Array.isArray(clean[k])) {
+                clean[k] = clean[k]
+                  ? String(clean[k])
+                      .split(/[,，\s]+/)
+                      .map(s => s.trim())
+                      .filter(Boolean)
+                  : []
+              } else {
+                clean[k] = clean[k].map(String)
+              }
+            }
+          }
+
           Config.setAll(clean)
-          return Result.ok({}, "已保存（含回复开关与提示词）")
+          return Result.ok({}, "已保存到 config/config/config.yaml")
         } catch (e) {
           return Result.error(`保存失败: ${e.message}`)
         }
@@ -443,4 +753,5 @@ export function supportGuoba() {
   }
 }
 
+/** 部分锅巴/文档会读此路径 */
 export const configFile = path.join(Plugin_Path, "config/config/config.yaml")

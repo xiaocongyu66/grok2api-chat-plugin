@@ -1,15 +1,53 @@
 # grok2api-chat-plugin — 锅巴后台配置；用户提示词永远服从后台，不服从前台用户“你是xxx”
+# 默认走标准 OpenAI Chat Completions；兼容任意 OpenAI-compatible 后端
+# （OpenAI / NewAPI / OneAPI / LiteLLM / grok2api / grok2api-sing 等）
 
 enable: true
 
-apiBase: "https://your-space.hf.space"
+# ---------- 自动更新（官方仓库）----------
+# https://github.com/xiaocongyu66/grok2api-chat-plugin
+# 启动后与定时任务会检查；#Grok更新 / #Grok检查更新 / #Grok强制更新 / #Grok版本
+autoUpdateCheck: true
+# true=有更新时自动 git pull；false=仅私聊通知主人（推荐）
+autoUpdatePull: false
+# Yunzai 定时（quartz），默认每天 4:30
+autoUpdateCron: "0 30 4 * * ?"
+# 启动后延迟多少秒做首次检查
+autoUpdateBootDelaySec: 45
+updateRepo: "https://github.com/xiaocongyu66/grok2api-chat-plugin.git"
+updateBranch: "main"
+
+# 服务根地址，不要带 /v1（插件会自动拼 /v1/chat/completions）
+# 例: https://api.openai.com  |  http://127.0.0.1:8000  |  https://your-proxy.example
+apiBase: "http://127.0.0.1:8000"
+# Bearer Key（OpenAI sk-... / 网关 g2a_... / 其它兼容 Key 均可）
 apiKey: ""
+# 鉴权头：both=Authorization+Bearer 与 X-API-Key 都发（推荐兼容）
+# bearer=仅 OpenAI 标准  |  x-api-key=仅 X-API-Key
+authHeaderMode: "both"
+# 可选：官方 OpenAI Organization / Project
+apiOrganization: ""
+apiProject: ""
+# 可选额外请求头，每行 Header-Name: value
+extraHeaders: ""
+# 自签/内网 HTTPS 跳过证书校验（默认关；正规 OpenAI 勿开）
+tlsInsecure: false
+# 瞬时网络错误重试次数（不含首次）
+requestRetries: 2
 
 # 对话模型：填 /v1/models 里真实 id；auto=自动选列表第一个对话模型
 chatModel: "auto"
-# 对话接口（严格 OpenAI 默认 chat）：
-# chat=/v1/chat/completions  responses=/v1/responses  auto=先 chat 再 responses
+# 对话接口（默认严格 OpenAI，不会抛弃 chat）：
+# chat=/v1/chat/completions（推荐）
+# auto=先 chat，仅协议/路径失败才试 responses（网络错误不回退）
+# responses=/v1/responses（仅当后端只提供 Responses 时）
 chatApiMode: "chat"
+# OpenAI 采样（空=不传字段，最大兼容）
+temperature: ""
+maxTokens: ""
+topP: ""
+presencePenalty: ""
+frequencyPenalty: ""
 # 对话是否传递用户消息中的图片（多模态看图）
 passImages: true
 # 单次最多传几张图
@@ -21,7 +59,11 @@ chatToolVideo: true
 # 单次最多工具往返轮数（锅巴可改 1–10；默认 3）
 chatToolMaxRounds: 3
 imageModel: "grok-imagine-image"
+# POST /v1/images/edits 用；auto=从 /v1/models 里挑 edit 类
+imageEditModel: "grok-imagine-image-edit"
 videoModel: "grok-imagine-video"
+# chatApiMode=responses 时是否粘滞 previous_response_id（多轮）
+responsesSticky: true
 
 timeoutMs: 180000
 videoPollIntervalSec: 5
@@ -31,8 +73,14 @@ videoAspectRatio: "16:9"
 videoResolution: "720p"
 
 imageN: 1
+# OpenAI 兼容 size，如 1024x1024；空=不传
 imageSize: ""
+# xAI/grok2api 宽高比 1:1|16:9|9:16|4:3|3:4|3:2|2:3
 imageAspectRatio: ""
+# xAI/grok2api 分辨率 1k|2k 等；空=不传
+imageResolution: ""
+# url | b64_json
+imageResponseFormat: "url"
 
 # 近期完整上下文条数（超出后压缩旧轮，不整段丢弃；仅 #清理会话 清空）
 maxHistory: 24

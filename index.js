@@ -23,7 +23,11 @@ for (let i = 0; i < files.length; i++) {
 
 try {
   Config.get()
-  logger.info(chalk.cyan(`[${Plugin_Name}] v1.0.0 已加载 · 锅巴可配 api/key/模型`))
+  logger.info(
+    chalk.cyan(
+      `[${Plugin_Name}] v1.3.0 已加载 · 全量 /v1 · 自动更新 github.com/xiaocongyu66/grok2api-chat-plugin`,
+    ),
+  )
 } catch (e) {
   logger.warn(`[${Plugin_Name}] 配置初始化: ${e.message}`)
 }
